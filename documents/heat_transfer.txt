@@ -1,0 +1,5 @@
+PLACEHOLDER SOURCE DOCUMENT
+
+This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Heat Transfer. Replace this text with actual notes, summaries, or class reflections from students.
+
+This content is intentionally minimal so the project can be tested for ingestion and retrieval while real student sources are not yet added.

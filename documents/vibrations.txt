@@ -1,0 +1,5 @@
+PLACEHOLDER SOURCE DOCUMENT
+
+This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Vibrations. Replace this text with actual notes, summaries, or class reflections from students.
+
+In a final version, this document could contain details about common analytical tools, conceptual difficulty, and how the course connects to dynamics and systems modeling.

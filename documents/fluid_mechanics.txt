@@ -1,0 +1,5 @@
+PLACEHOLDER SOURCE DOCUMENT
+
+This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Fluid Mechanics. Replace this text with actual notes, summaries, or class reflections from students.
+
+The final system should be able to answer questions such as what students expect from the course, how difficult the assignments are, and which concepts recur most often in the class.

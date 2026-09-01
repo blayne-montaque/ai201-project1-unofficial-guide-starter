@@ -1,0 +1,5 @@
+PLACEHOLDER SOURCE DOCUMENT
+
+This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Instrumentation. Replace this text with actual notes, summaries, or class reflections from students.
+
+This course often benefits from practical examples involving sensors, data acquisition, and interpretation of measurement error.
