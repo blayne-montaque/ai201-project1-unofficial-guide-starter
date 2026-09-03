@@ -1,5 +1,21 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSE: MEEG-403 Heat Transfer
+CREDITS: 3
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Heat Transfer. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-403 Heat Transfer covers analytical and numerical methods used to study heat transfer.
 
-This content is intentionally minimal so the project can be tested for ingestion and retrieval while real student sources are not yet added.
+The course addresses the three major modes of heat transfer: conduction, convection, and radiation.
+
+Students study both steady-state and unsteady heat flow. Additional topics include heat transfer involving condensing vapors and boiling liquids.
+
+Heat Transfer is part of the thermal-fluid science area of the Mechanical Engineering curriculum and is normally taken during the senior year.
+
+The March 2024 Mechanical Engineering handbook lists Applied Thermodynamics, Fluid Mechanics II, and Computer Aided Engineering as prerequisites for MEEG-403.
+
+SOURCE:
+Howard University College of Engineering and Architecture
+Mechanical Engineering Course Descriptions
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

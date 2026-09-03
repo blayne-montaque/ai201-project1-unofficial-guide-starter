@@ -1,0 +1,18 @@
+SOURCE: Howard University College of Engineering and Architecture
+COURSE: MEEG-301 System Dynamics
+CREDITS: 3
+
+MEEG-301 System Dynamics introduces students to modern control theory.
+
+The course includes digital control, nonlinear system analysis, and mathematical modeling of physical systems.
+
+Systems modeled in the course may contain mechanical, fluid, thermal, and electrical elements.
+
+The course also introduces classical feedback control theory and control-system design. These concepts are applied to practical electromechanical and aerospace engineering problems.
+
+System Dynamics therefore connects mathematical modeling with the behavior and control of real engineering systems.
+
+Within the Howard Mechanical Engineering curriculum, the course is taken during the second semester of the junior year.
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

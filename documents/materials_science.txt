@@ -1,5 +1,16 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+COURSE: MEEG-209 Materials Science
+CREDITS: 3
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Materials Science. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-209 Materials Science studies the relationship between the internal structure of engineering materials and their mechanical and physical properties.
 
-This topic often involves balancing theory, lab observations, and practical engineering applications across different material classes.
+The course includes metals, ceramics, and organic materials.
+
+A major idea in the course is that material properties can be controlled or changed by modifying the material's microstructure.
+
+The course also considers the stability and behavior of materials in service environments.
+
+Materials Science provides a foundation for later engineering courses involving mechanical design, manufacturing, structural behavior, and material selection.
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

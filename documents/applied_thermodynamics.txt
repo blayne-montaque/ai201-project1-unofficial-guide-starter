@@ -1,0 +1,16 @@
+SOURCE: Howard University Undergraduate Catalogue
+COURSE: MEEG-306 Applied Thermodynamics
+CREDITS: 3
+
+MEEG-306 Applied Thermodynamics builds on the introductory Thermodynamics course and focuses on applications of thermodynamic principles.
+
+Major subjects include mixtures, combustion, power cycles, gas turbines, compressors, reciprocating engines, refrigeration, and reactive systems.
+
+The course also introduces Onsager relations and direct energy conversion. Laboratory work is included as part of the course.
+
+Within the Howard Mechanical Engineering curriculum, Applied Thermodynamics is normally taken during the second semester of the junior year.
+
+It follows MEEG-304 Thermodynamics and is part of the thermal and energy side of the Mechanical Engineering curriculum.
+
+SOURCE:
+Howard University 2025-2026 Undergraduate Catalogue

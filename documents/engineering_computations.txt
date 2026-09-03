@@ -1,0 +1,16 @@
+SOURCE: Howard University College of Engineering and Architecture
+COURSE: MEEG-207 Introduction to Engineering Computations
+CREDITS: 3
+
+MEEG-207 Introduction to Engineering Computations introduces computer programming in the context of engineering problem solving.
+
+The course covers procedural thinking, algorithm development, and methods for developing computational solutions to engineering problems.
+
+Software packages such as MATLAB are used as engineering computation tools.
+
+The purpose of the course is therefore not only to teach programming syntax, but also to teach students how to translate engineering problems into algorithms that can be solved computationally.
+
+The course provides computational preparation that can be useful in later Mechanical Engineering courses involving modeling, numerical analysis, controls, experimentation, and data processing.
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

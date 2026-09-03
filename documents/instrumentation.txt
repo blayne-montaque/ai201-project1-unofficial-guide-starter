@@ -1,5 +1,16 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University Undergraduate Catalogue
+COURSE: MEEG-316 Instrumentation & Experimentation Lab
+CREDITS: 2
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Instrumentation. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-316 Instrumentation and Experimentation Lab covers the basic principles of instruments and sensors used in engineering measurements.
 
-This course often benefits from practical examples involving sensors, data acquisition, and interpretation of measurement error.
+The course also addresses experimental error and uncertainty analysis.
+
+This course is part of the experimental component of the Mechanical Engineering curriculum and introduces students to the process of obtaining, interpreting, and evaluating engineering measurement data.
+
+The Howard curriculum places Instrumentation and Experimentation during the second semester of the junior year.
+
+Because engineering measurements always contain some degree of uncertainty, the course emphasizes understanding the quality and limitations of experimental measurements in addition to simply collecting data.
+
+SOURCE:
+Howard University 2025-2026 Undergraduate Catalogue

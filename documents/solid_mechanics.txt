@@ -1,5 +1,21 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSE: MEEG-204 Solid Mechanics
+CREDITS: 3
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Solid Mechanics. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-204 Solid Mechanics introduces the behavior of deformable solid bodies under mechanical loading.
 
-Student-generated guidance is useful here because the course often mixes analytical problem solving with conceptual understanding.
+Major topics include the basic concepts of stress and strain, states of stress and strain, Mohr's circle, and bending of prismatic bars.
+
+The course provides students with a foundation for analyzing how engineering components deform and carry loads. These concepts are important for later courses involving mechanical design, structures, manufacturing, and component failure.
+
+Within the Howard Mechanical Engineering curriculum, Solid Mechanics is taken during the second semester of the sophomore year.
+
+Howard also offers MEEG-206 Solid Mechanics Lab, a one-credit laboratory course. The laboratory exposes students to experimental methods used to evaluate mechanical properties, including measurement of static and dynamic properties.
+
+SOURCE:
+Howard University College of Engineering and Architecture
+Mechanical Engineering Course Descriptions
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

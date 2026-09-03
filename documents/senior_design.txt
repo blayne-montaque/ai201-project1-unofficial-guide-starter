@@ -1,5 +1,23 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSES: MEEG-441 Senior Project I and MEEG-442 Senior Project II
+CREDITS: 3 credits each
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Senior Design. Replace this text with actual notes, summaries, or class reflections from students.
+Howard Mechanical Engineering's senior project sequence consists of MEEG-441 Senior Project I and MEEG-442 Senior Project II.
 
-The final corpus should describe team expectations, scheduling demands, design process milestones, and how the course differs from traditional lecture classes.
+MEEG-441 is an independent team design study completed under the supervision of Mechanical Engineering faculty members. Students work on an engineering design problem of current interest.
+
+The senior project includes a formal reporting component. A project report must be submitted for review by Mechanical Engineering faculty before graduation.
+
+MEEG-442 continues the team design study begun in MEEG-441.
+
+This makes Senior Project a two-course sequence rather than an isolated one-semester project. Students progress from Senior Project I into Senior Project II while continuing their team engineering design work.
+
+The Mechanical Engineering curriculum places Senior Project I in the first senior semester and Senior Project II in the second senior semester.
+
+SOURCE:
+Howard University College of Engineering and Architecture
+Mechanical Engineering Course Descriptions
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

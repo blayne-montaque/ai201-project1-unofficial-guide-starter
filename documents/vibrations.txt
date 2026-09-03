@@ -1,5 +1,22 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSE: MEEG-418 Vibration Analysis
+CREDITS: 3
+CATEGORY: Technical Elective - Applied Mechanics/Aerospace
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Vibrations. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-418 Vibration Analysis studies the dynamic behavior of vibrating mechanical systems.
 
-In a final version, this document could contain details about common analytical tools, conceptual difficulty, and how the course connects to dynamics and systems modeling.
+The course covers single-degree-of-freedom, two-degree-of-freedom, and multi-degree-of-freedom vibration systems.
+
+Students also study mode shape functions and numerical methods for solving vibration problems.
+
+Software packages are incorporated into vibration analysis, connecting the mathematical theory of vibration with computational engineering methods.
+
+Within Howard's Mechanical Engineering program, Vibration Analysis is listed as a technical elective in the Applied Mechanics/Aerospace area.
+
+SOURCE:
+Howard University College of Engineering and Architecture
+Mechanical Engineering Course Descriptions
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me

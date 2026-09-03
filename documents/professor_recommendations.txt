@@ -1,0 +1,161 @@
+SOURCE: Firsthand Howard University Mechanical Engineering student experience
+TOPIC: Professor and Course Recommendations
+NOTE: These comments reflect one student's experience and perspective. They are not official Howard University or Department of Mechanical Engineering evaluations.
+
+======================================================================
+DR. EMMANUEL K. GLAKPE
+======================================================================
+
+Recommended Courses:
+- MEEG-304 Thermodynamics
+- MEEG-307 Fluid Mechanics
+- MEEG-403 Heat Transfer
+
+Dr. Emmanuel K. Glakpe is one of the professors I would recommend for the thermal-fluid side of the Mechanical Engineering curriculum.
+
+His courses put a lot of emphasis on understanding the physical meaning behind the equations rather than just getting a numerical answer. In Thermodynamics especially, clearly defining the system or control volume and setting up the governing energy balance correctly is important.
+
+A technically correct final number does not necessarily mean the solution is complete. The setup, assumptions, energy interactions, control volume, and bookkeeping used to reach the answer matter.
+
+For example, when using an energy balance, students should clearly identify terms such as energy entering the control volume, energy leaving the control volume, energy generation when applicable, and the rate of energy accumulation. Diagrams and control-volume boundaries are useful parts of communicating the solution rather than just decoration.
+
+His grading can be strict about these details. Missing terms, incorrectly identifying an energy interaction, or failing to properly label a control volume can cost points even if later calculations are reasonable.
+
+This makes his classes useful for developing engineering problem-solving habits. The goal is not just to know an equation, but to be able to explain where it came from and why each term belongs in it.
+
+Thermodynamics provides the foundation, Fluid Mechanics extends the same conservation-law style of thinking to fluid systems, and Heat Transfer builds on both areas.
+
+Best way to succeed:
+Understand the governing physics before plugging numbers into equations. Draw the system, identify what crosses the boundary, write the general governing equation, simplify it using justified assumptions, and then solve.
+
+Recommended for:
+Students who want a rigorous understanding of thermal-fluid sciences and are willing to be precise about their engineering analysis.
+
+
+======================================================================
+DR. ACHILLE MESSAC
+======================================================================
+
+Recommended Courses:
+- MEEG-207 Introduction to Engineering Computations
+- MEEG-416 Aerostructures
+- MEEG-418 Vibration Analysis
+
+Dr. Achille Messac is a strong recommendation for students interested in analytical and computational engineering.
+
+His subject areas connect particularly well for students interested in aerospace, optimization, mathematical modeling, structures, and engineering research.
+
+Engineering Computations provides useful preparation for turning engineering problems into computational problems. That type of thinking becomes increasingly valuable in upper-level engineering courses where analytical equations, numerical methods, MATLAB, optimization, and computational tools begin to overlap.
+
+Aerostructures is particularly relevant for students interested in aerospace engineering and structural analysis. It builds on mechanics concepts and applies them to aerospace structures.
+
+Vibration Analysis is another mathematically intensive subject. It deals with the dynamic response of mechanical systems, including single and multiple degree-of-freedom systems and modal behavior.
+
+A major benefit of taking technical courses in this area is seeing how mathematics, computation, and physical engineering models connect rather than treating them as completely separate subjects.
+
+Messac is also a professor worth getting to know if you have a serious interest in engineering research. Research requires significantly more independence than a normal class, and students should be prepared to understand why a method works instead of simply producing an output.
+
+Best way to succeed:
+Be comfortable with the mathematics and do not treat computational tools as black boxes. Understand what the equations and algorithms are doing physically and mathematically.
+
+Recommended for:
+Students interested in aerospace, computational engineering, optimization, vibrations, structural mechanics, research, or graduate school.
+
+
+======================================================================
+DR. NAREN VIRA
+======================================================================
+
+Recommended Courses:
+- MEEG-301 System Dynamics
+- MEEG-444 Robotics
+
+Dr. Naren Vira is a good professor to consider for students interested in dynamic systems, controls, robotics, and mechatronics.
+
+System Dynamics is an important transition from basic mechanics into mathematical modeling of complete engineering systems. Instead of analyzing only an isolated force or component, students begin thinking about how inputs, outputs, system states, feedback, and dynamic response interact.
+
+That foundation connects naturally to Robotics, where mechanics, computation, electronics, control, and physical hardware begin to come together.
+
+These courses are particularly useful for students who like engineering problems involving systems rather than only individual components.
+
+The material also becomes much easier when students understand the physical meaning of the mathematical model. Differential equations, system models, and control concepts should represent something happening in the actual physical system.
+
+Best way to succeed:
+Keep the physical system connected to the mathematics. Understand what the inputs, outputs, states, and parameters actually represent instead of memorizing solution procedures.
+
+Recommended for:
+Students interested in robotics, controls, mechatronics, autonomous systems, dynamic modeling, and multidisciplinary engineering.
+
+
+======================================================================
+DR. NIKOLAI PRIEZJEV
+======================================================================
+
+Recommended Courses:
+- CIEG-202 Statics
+- CIEG-302 Dynamics
+
+Dr. Nikolai Priezjev is a recommendation for Statics and Dynamics, two of the major mechanics foundation courses taken before upper-level Mechanical Engineering coursework.
+
+Statics establishes the fundamentals of force systems, moments, equilibrium, and free-body diagrams. Dynamics extends mechanics into systems undergoing motion and introduces topics such as kinematics, kinetics, work and energy, and impulse and momentum.
+
+These courses are extremely important because weaknesses in basic mechanics tend to show up again later in Solid Mechanics, Mechanical Design, System Dynamics, Vibrations, and other upper-level engineering courses.
+
+The most useful habit to develop in these classes is setting up the physics correctly before doing the algebra. A clean free-body diagram, coordinate system, known quantities, unknown quantities, and governing equations can make an otherwise difficult problem much easier.
+
+Dynamics in particular becomes much more manageable when the equations are connected to the actual motion of the object instead of being treated as formulas to memorize.
+
+Best way to succeed:
+Get very good at diagrams and problem setup. Do not skip directly to equations. Make sure you understand the geometry and physical motion before solving.
+
+Recommended for:
+Students who want a strong mechanics foundation before moving into more advanced Mechanical Engineering courses.
+
+
+======================================================================
+DR. GBADEBO OWOLABI
+======================================================================
+
+Recommended Courses:
+- MEEG-209 Materials Science
+- MEEG-310 / MEEG-311 Mechanical Design
+
+Dr. Gbadebo Owolabi is a recommendation for students interested in materials, mechanical design, structural behavior, and the relationship between material properties and engineering components.
+
+Materials Science provides the foundation for understanding why engineering materials behave differently. Important ideas include material structure, mechanical properties, material selection, and how processing or changes in a material can affect its engineering behavior.
+
+Mechanical Design takes mechanics and materials knowledge and applies it to the design of actual components and systems.
+
+The connection between the two subjects is important. Mechanical design is not simply choosing dimensions and calculating stresses. Engineers also have to consider what the component is made from, how the material behaves under the expected loading, and what failure mechanisms may be important.
+
+These courses are especially valuable for students interested in mechanical hardware because they connect theoretical mechanics with decisions that have to be made when designing real components.
+
+Best way to succeed:
+Do not memorize material properties or design equations in isolation. Understand how loading, geometry, material behavior, and failure interact.
+
+Recommended for:
+Students interested in mechanical design, materials, structures, manufacturing, hardware development, and component-level engineering.
+
+
+======================================================================
+GENERAL RECOMMENDATION
+======================================================================
+
+Different professors and courses develop different engineering skills.
+
+For thermal-fluid sciences:
+Dr. Emmanuel K. Glakpe
+
+For computation, aerospace structures, vibrations, optimization, and research:
+Dr. Achille Messac
+
+For controls, system modeling, and robotics:
+Dr. Naren Vira
+
+For foundational statics and dynamics:
+Dr. Nikolai Priezjev
+
+For materials and mechanical design:
+Dr. Gbadebo Owolabi
+
+These recommendations are based on personal student experience and should be treated as one perspective rather than a definitive ranking of Howard University professors.

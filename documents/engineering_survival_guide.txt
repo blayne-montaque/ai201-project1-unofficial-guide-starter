@@ -1,5 +1,24 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University Mechanical Engineering Undergraduate Program Materials
+TOPIC: Navigating the Howard Mechanical Engineering Curriculum
 
-This file is a placeholder for real student-generated guidance on surviving Howard University Mechanical Engineering coursework. Replace this text with actual notes, summaries, or practical advice from students.
+Howard University's Mechanical Engineering curriculum progresses from foundational mathematics, science, computing, and mechanics courses into more specialized mechanical engineering subjects.
 
-Useful sections may include study habits, time management, group work expectations, and recommendations for technical writing, MATLAB, and design courses.
+Early coursework includes Calculus, Physics, Chemistry, Introduction to Engineering, Computer Aided Design, Statics, Engineering Computations, Dynamics, Solid Mechanics, and Materials Science.
+
+The junior curriculum moves heavily into core Mechanical Engineering subjects. These include Thermodynamics, Fluid Mechanics, Mechanical Design, Manufacturing, System Dynamics, Applied Thermodynamics, Instrumentation and Experimentation, Fluid Mechanics II, and Computer Aided Engineering.
+
+Senior-level coursework includes Heat Transfer, Thermal/Fluid Science Lab, Senior Project, and technical electives.
+
+The prerequisite structure means that completing foundational courses on schedule is important. Upper-level Mechanical Engineering courses depend on earlier mathematics, mechanics, thermal sciences, computing, and design courses.
+
+Students should use the published curriculum and prerequisite tables when planning future semesters. Howard's Mechanical Engineering handbook also recommends that students consult their faculty advisor regularly regarding academic matters and career objectives.
+
+Technical electives allow students to explore more specialized areas. Howard lists options involving design and manufacturing, energy, and applied mechanics/aerospace.
+
+Examples of technical electives include Robotics, CAD/CAM, Product Data Management, Vibration Analysis, Aerofluid Dynamics, Jet Propulsion, Aerostructures, Computational Fluid Dynamics, MEMS, and Undergraduate Research.
+
+This document summarizes curriculum navigation information and should not replace current advising or official university degree requirements.
+
+SOURCE:
+Howard University Department of Mechanical Engineering
+Undergraduate Program Handbook and Mechanical Engineering Course Descriptions

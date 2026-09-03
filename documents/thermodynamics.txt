@@ -1,5 +1,15 @@
-PLACEHOLDER SOURCE DOCUMENT
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSE: MEEG-304 Thermodynamics
+CREDITS: 3
 
-This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Thermodynamics. Replace this text with actual notes, summaries, or class reflections from students.
+MEEG-304 Thermodynamics introduces the basic concepts and definitions used in thermodynamics. The course covers the laws of thermodynamics, properties of pure substances, entropy, and availability.
 
-The purpose of this project is to support searchable course knowledge. The final corpus should include honest student observations about workload, topics, common pitfalls, and expectations for Thermodynamics.
+Within the Howard University Mechanical Engineering curriculum, Thermodynamics is a junior-level course. It appears in the first semester of the junior year and carries three credits.
+
+The course serves as part of the thermal sciences foundation of the Mechanical Engineering curriculum. Topics such as thermodynamic properties, energy relationships, entropy, and availability prepare students for later thermal-fluid courses including Applied Thermodynamics and Heat Transfer.
+
+According to the Mechanical Engineering curriculum, students take Thermodynamics alongside courses such as Fluid Mechanics, Mechanical Design I, Manufacturing, and Probability and Statistics during the first semester of junior year.
+
+SOURCE URL:
+https://cea.howard.edu/academics/departments/mechanical-engineering/undergraduate/course-descriptions-me
