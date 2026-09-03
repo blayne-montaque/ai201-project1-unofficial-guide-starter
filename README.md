@@ -6,20 +6,26 @@ This project builds a local RAG system for student-generated knowledge about How
 
 ## Document Sources
 
-The current repository contains placeholder text files under the documents folder, which are intended to be replaced with real student-source material as the corpus is gathered. The implementation is designed to automatically load all .txt files in that directory, so more documents can be added or swapped in without changing the code.
+The repository contains 16 Howard Mechanical Engineering source documents: 15 `.txt` files and one Mechanical Engineering Undergraduate Handbook PDF. The corpus combines official program information with clearly labeled student-perspective material.
 
 | # | Source | Type | URL or file path |
 |---|--------|------|-----------------|
-| 1 | thermodynamics.txt | local placeholder source | documents/thermodynamics.txt |
-| 2 | fluid_mechanics.txt | local placeholder source | documents/fluid_mechanics.txt |
-| 3 | heat_transfer.txt | local placeholder source | documents/heat_transfer.txt |
-| 4 | dynamics.txt | local placeholder source | documents/dynamics.txt |
-| 5 | solid_mechanics.txt | local placeholder source | documents/solid_mechanics.txt |
-| 6 | materials_science.txt | local placeholder source | documents/materials_science.txt |
-| 7 | vibrations.txt | local placeholder source | documents/vibrations.txt |
-| 8 | instrumentation.txt | local placeholder source | documents/instrumentation.txt |
-| 9 | senior_design.txt | local placeholder source | documents/senior_design.txt |
-| 10 | engineering_survival_guide.txt | local placeholder source | documents/engineering_survival_guide.txt |
+| 1 | Mechanical Engineering Undergraduate Handbook.pdf | official handbook | documents/Mechanical Engineering Undergraduate Handbook.pdf |
+| 2 | thermodynamics.txt | course guide | documents/thermodynamics.txt |
+| 3 | applied_thermodynamics.txt | course guide | documents/applied_thermodynamics.txt |
+| 4 | fluid_mechanics.txt | course guide | documents/fluid_mechanics.txt |
+| 5 | heat_transfer.txt | course guide | documents/heat_transfer.txt |
+| 6 | dynamics.txt | course guide | documents/dynamics.txt |
+| 7 | solid_mechanics.txt | course guide | documents/solid_mechanics.txt |
+| 8 | materials_science.txt | course guide | documents/materials_science.txt |
+| 9 | engineering_computations.txt | course guide | documents/engineering_computations.txt |
+| 10 | system_dynamics.txt | course guide | documents/system_dynamics.txt |
+| 11 | instrumentation.txt | course guide | documents/instrumentation.txt |
+| 12 | vibrations.txt | course guide | documents/vibrations.txt |
+| 13 | senior_design.txt | course guide | documents/senior_design.txt |
+| 14 | mechanical_engineering_program.txt | program overview | documents/mechanical_engineering_program.txt |
+| 15 | engineering_survival_guide.txt | curriculum guidance | documents/engineering_survival_guide.txt |
+| 16 | professor_recommendations.txt | student perspective | documents/professor_recommendations.txt |
 
 ## Architecture
 
@@ -27,9 +33,11 @@ The implemented pipeline is:
 
 Document ingestion -> paragraph-aware chunking -> all-MiniLM-L6-v2 embeddings -> ChromaDB -> top-k retrieval -> Groq grounded generation -> Gradio interface.
 
-## Document Ingestion
+## Document Pipeline
 
-The ingestion pipeline is implemented in [ingest.py](ingest.py). It loads every .txt file from the documents directory, normalizes whitespace, removes empty artifacts, preserves paragraph boundaries where practical, filters empty chunks, and returns a list of chunk dictionaries that include source filename and chunk index. The script can be run directly with:
+The ingestion pipeline in [ingest.py](ingest.py) loads all 16 documents from `documents/`: 15 `.txt` files and one `.pdf` handbook. It cleans text while preserving useful paragraph boundaries, then creates paragraph-aware chunks near 800 characters with about 150 characters of overlap. This fits the course guides, student recommendations, and longer handbook sections because it keeps related ideas together while still producing focused chunks for later retrieval. Each chunk keeps its source filename, index, file type, and topic metadata.
+
+Run it directly with:
 
 python ingest.py
 
@@ -40,19 +48,97 @@ The current implementation uses a paragraph-aware chunking strategy with a targe
 **Chunk size:** 800 characters  
 **Overlap:** 150 characters  
 **Why these choices fit your documents:** Short-to-medium text documents benefit from preserving logical paragraphs while still allowing semantically related content to overlap across chunk boundaries.  
-**Final chunk count:** 10 chunks generated from the initial placeholder corpus.
+**Final chunk count:** 127 chunks generated from the current 16-document corpus.
 
 ## Sample Chunks
 
-The following sample chunks were produced by the actual ingestion pipeline on the current placeholder documents. They are intentionally direct placeholders rather than fabricated student reviews.
+These five chunks are deterministic samples produced by running `ingest.py` on the current corpus.
 
-| # | Source document | Chunk text |
-|---|----------------|------------|
-| 1 | dynamics.txt | PLACEHOLDER SOURCE DOCUMENT This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Dynamics. Replace this text with actual notes, summaries, or class reflections from students. The final corpus should cover concept difficulty, project expectations, and the relationship between the lecture content and assignments. |
-| 2 | engineering_survival_guide.txt | PLACEHOLDER SOURCE DOCUMENT This file is a placeholder for real student-generated guidance on surviving Howard University Mechanical Engineering coursework. Replace this text with actual notes, summaries, or practical advice from students. Useful sections may include study habits, time management, group work expectations, and recommendations for technical writing, MATLAB, and design courses. |
-| 3 | fluid_mechanics.txt | PLACEHOLDER SOURCE DOCUMENT This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Fluid Mechanics. Replace this text with actual notes, summaries, or class reflections from students. The final system should be able to answer questions such as what students expect from the course, how difficult the assignments are, and which concepts recur most often in the class. |
-| 4 | heat_transfer.txt | PLACEHOLDER SOURCE DOCUMENT This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Heat Transfer. Replace this text with actual notes, summaries, or class reflections from students. This content is intentionally minimal so the project can be tested for ingestion and retrieval while real student sources are not yet added. |
-| 5 | instrumentation.txt | PLACEHOLDER SOURCE DOCUMENT This file is a placeholder for real student-generated material about Howard University Mechanical Engineering Instrumentation. Replace this text with actual notes, summaries, or class reflections from students. This course often benefits from practical examples involving sensors, data acquisition, and interpretation of measurement error. |
+### Chunk 1
+
+**Source:** `applied_thermodynamics.txt`
+
+```text
+SOURCE: Howard University Undergraduate Catalogue
+COURSE: MEEG-306 Applied Thermodynamics
+CREDITS: 3
+
+MEEG-306 Applied Thermodynamics builds on the introductory Thermodynamics course and focuses on applications of thermodynamic principles.
+
+Major subjects include mixtures, combustion, power cycles, gas turbines, compressors, reciprocating engines, refrigeration, and reactive systems.
+
+The course also introduces Onsager relations and direct energy conversion. Laboratory work is included as part of the course.
+
+Within the Howard Mechanical Engineering curriculum, Applied Thermodynamics is normally taken during the second semester of the junior year.
+
+It follows MEEG-304 Thermodynamics and is part of the thermal and energy side of the Mechanical Engineering curriculum.
+```
+
+### Chunk 2
+
+**Source:** `dynamics.txt`
+
+```text
+SOURCE: Howard University College of Engineering and Architecture
+COURSE: CIEG-302 Dynamics
+CREDITS: 3
+
+CIEG-302 Dynamics studies the motion of particles, systems of particles, rigid bodies, and simple deformable mass systems.
+
+Major topics include rectilinear and curvilinear kinematics, Newton's laws of motion and gravitation, work-energy methods, impulse-momentum methods, and conservation laws for energy and momentum.
+
+The course also provides an introduction to vibrations and includes computer-aided engineering applications.
+
+Within the Howard Mechanical Engineering curriculum, Dynamics is taken during the second semester of the sophomore year.
+```
+
+### Chunk 3
+
+**Source:** `engineering_computations.txt`
+
+```text
+SOURCE: Howard University College of Engineering and Architecture
+COURSE: MEEG-207 Introduction to Engineering Computations
+CREDITS: 3
+
+MEEG-207 Introduction to Engineering Computations introduces computer programming in the context of engineering problem solving.
+
+The course covers procedural thinking, algorithm development, and methods for developing computational solutions to engineering problems.
+
+Software packages such as MATLAB are used as engineering computation tools.
+
+The purpose of the course is therefore not only to teach programming syntax, but also to teach students how to translate engineering problems into algorithms that can be solved computationally.
+```
+
+### Chunk 4
+
+**Source:** `engineering_survival_guide.txt`
+
+```text
+SOURCE: Howard University Mechanical Engineering Undergraduate Program Materials
+TOPIC: Navigating the Howard Mechanical Engineering Curriculum
+
+Howard University's Mechanical Engineering curriculum progresses from foundational mathematics, science, computing, and mechanics courses into more specialized mechanical engineering subjects.
+
+Early coursework includes Calculus, Physics, Chemistry, Introduction to Engineering, Computer Aided Design, Statics, Engineering Computations, Dynamics, Solid Mechanics, and Materials Science.
+```
+
+### Chunk 5
+
+**Source:** `fluid_mechanics.txt`
+
+```text
+SOURCE: Howard University College of Engineering and Architecture
+SOURCE PAGE: Mechanical Engineering Course Descriptions
+COURSE: MEEG-307 Fluid Mechanics
+CREDITS: 3
+
+MEEG-307 Fluid Mechanics introduces the fundamental principles used to analyze the behavior of fluids.
+
+The course covers fluid properties and fluid statics, including pressure variation and forces exerted by fluids. It also introduces the basic principles governing fluids in motion.
+
+Major topics include conservation of mass, momentum, and energy as applied to fluid systems. These principles are used to analyze fluid flow and engineering systems involving liquids and gases.
+```
 
 ## Embedding Model
 

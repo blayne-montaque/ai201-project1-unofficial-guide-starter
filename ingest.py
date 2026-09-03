@@ -1,153 +1,404 @@
 from __future__ import annotations
 
+import html
 import re
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Iterable
+from statistics import mean
+from typing import Any
 
 DEFAULT_TARGET_CHUNK_SIZE = 800
 DEFAULT_OVERLAP = 150
+MIN_USEFUL_CHUNK_SIZE = 80
+SUPPORTED_FILE_TYPES = {".txt": "txt", ".pdf": "pdf"}
+
+
+def topic_from_source(source: str) -> str:
+    """Create a stable topic identifier from a source filename."""
+    stem = Path(source).stem.lower()
+    return re.sub(r"[^a-z0-9]+", "_", stem).strip("_")
+
+
+def clean_text(raw_text: str) -> str:
+    """Clean text without removing paragraph boundaries or engineering details."""
+    text = html.unescape(raw_text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+
+    cleaned_lines: list[str] = []
+    previous_line_was_blank = False
+    for line in text.split("\n"):
+        normalized_line = re.sub(r"[\t ]+", " ", line).strip()
+        if normalized_line:
+            cleaned_lines.append(normalized_line)
+            previous_line_was_blank = False
+        elif cleaned_lines and not previous_line_was_blank:
+            cleaned_lines.append("")
+            previous_line_was_blank = True
+
+    return "\n".join(cleaned_lines).strip()
 
 
 def normalize_text(raw_text: str) -> str:
-    """Normalize whitespace while preserving paragraph breaks."""
-    text = raw_text.replace("\r\n", "\n").replace("\r", "\n")
-    text = text.replace("\t", " ")
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"[ \t]+", " ", text)
-    text = text.strip()
-    return text
+    """Backward-compatible name for the project cleaning function."""
+    return clean_text(raw_text)
+
+
+def extract_pdf_text(pdf_path: Path) -> str:
+    """Extract readable text from each page of a PDF with pdfplumber."""
+    try:
+        import pdfplumber
+    except ImportError as exc:
+        raise RuntimeError(
+            "PDF support requires pdfplumber. Install dependencies with "
+            "'.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt'."
+        ) from exc
+
+    page_texts: list[str] = []
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    page_texts.append(page_text)
+                else:
+                    print(f"WARNING: No extractable text found on page {page_number} of {pdf_path.name}.")
+    except Exception as exc:
+        raise RuntimeError(f"Could not extract text from PDF '{pdf_path.name}': {exc}") from exc
+
+    extracted_text = "\n\n".join(page_texts)
+    if not extracted_text.strip():
+        raise ValueError(f"PDF '{pdf_path.name}' did not contain extractable text.")
+    return extracted_text
+
+
+def load_documents(doc_dir: str | Path = "documents") -> list[dict[str, str]]:
+    """Load and clean every supported document while retaining source metadata."""
+    folder = Path(doc_dir)
+    if not folder.exists():
+        raise FileNotFoundError(f"Documents directory does not exist: {folder}")
+    if not folder.is_dir():
+        raise NotADirectoryError(f"Documents path is not a directory: {folder}")
+
+    documents: list[dict[str, str]] = []
+    for document_path in sorted(folder.iterdir(), key=lambda path: path.name.lower()):
+        if not document_path.is_file():
+            continue
+
+        file_type = SUPPORTED_FILE_TYPES.get(document_path.suffix.lower())
+        if file_type is None:
+            print(f"WARNING: Unsupported file type ignored: {document_path.name}")
+            continue
+
+        if file_type == "txt":
+            try:
+                raw_text = document_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(f"Could not decode text document '{document_path.name}' as UTF-8.") from exc
+        else:
+            raw_text = extract_pdf_text(document_path)
+
+        text = clean_text(raw_text)
+        if not text:
+            raise ValueError(f"Document '{document_path.name}' is empty after cleaning.")
+
+        documents.append(
+            {
+                "source": document_path.name,
+                "text": text,
+                "file_type": file_type,
+                "topic": topic_from_source(document_path.name),
+            }
+        )
+
+    if not documents:
+        raise ValueError(f"No supported, non-empty documents found in {folder}.")
+    return documents
 
 
 def split_into_paragraphs(text: str) -> list[str]:
-    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n\s*\n", text) if paragraph.strip()]
-    return paragraphs
+    """Split cleaned text on intentional blank-line paragraph separators."""
+    return [paragraph.strip() for paragraph in re.split(r"\n\s*\n", text) if paragraph.strip()]
 
 
-def find_sentence_boundary(text: str, start: int, end: int) -> int | None:
-    """Find a sentence-ending boundary near the end of a chunk when one exists."""
-    boundaries = [
-        text.rfind(". ", start, end),
-        text.rfind("! ", start, end),
-        text.rfind("? ", start, end),
-        text.rfind("\n", start, end),
-    ]
-    valid = [index for index in boundaries if index > start + 80]
-    if not valid:
+def _sentence_boundary(text: str, start: int, end: int) -> int | None:
+    """Return the latest useful sentence boundary before an end position."""
+    boundaries = [match.end() for match in re.finditer(r"[.!?](?:\s+|$)", text[start:end])]
+    if not boundaries:
         return None
-    return max(valid) + 1
+
+    absolute_boundaries = [start + boundary for boundary in boundaries]
+    useful_boundaries = [boundary for boundary in absolute_boundaries if boundary > start + 160]
+    return useful_boundaries[-1] if useful_boundaries else None
 
 
-def chunk_paragraph(paragraph: str, target_size: int = DEFAULT_TARGET_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP) -> list[str]:
-    """Chunk a paragraph using a sliding-window approach with overlap."""
-    if not paragraph.strip():
+def _overlap_tail(text: str, overlap: int) -> str:
+    """Return a sentence-aligned tail for the next paragraph-aware chunk."""
+    if overlap <= 0 or len(text) <= overlap:
+        return text.strip()
+
+    target_start = len(text) - overlap
+    sentence_starts = [0]
+    sentence_starts.extend(match.end() for match in re.finditer(r"[.!?]\s+", text))
+    suitable_starts = [start for start in sentence_starts if start <= target_start]
+    if suitable_starts:
+        return text[suitable_starts[-1] :].strip()
+
+    next_space = text.find(" ", target_start)
+    if next_space == -1:
+        return text[target_start:].strip()
+    return text[next_space + 1 :].strip()
+
+
+def chunk_paragraph(
+    paragraph: str,
+    target_size: int = DEFAULT_TARGET_CHUNK_SIZE,
+    overlap: int = DEFAULT_OVERLAP,
+) -> list[str]:
+    """Split one long paragraph at sentence boundaries, retaining overlap."""
+    paragraph = paragraph.strip()
+    if not paragraph:
         return []
     if len(paragraph) <= target_size:
-        return [paragraph.strip()]
+        return [paragraph]
 
     chunks: list[str] = []
     start = 0
-
     while start < len(paragraph):
-        end = min(start + target_size, len(paragraph))
-        boundary = None
-
-        if end < len(paragraph):
-            boundary = find_sentence_boundary(paragraph, start, end)
-            if boundary is not None and boundary > start + max(80, target_size // 2):
-                end = boundary
+        proposed_end = min(start + target_size, len(paragraph))
+        end = proposed_end
+        if proposed_end < len(paragraph):
+            sentence_end = _sentence_boundary(paragraph, start, proposed_end)
+            if sentence_end is not None and sentence_end >= start + target_size // 2:
+                end = sentence_end
+            else:
+                word_end = paragraph.rfind(" ", start + target_size // 2, proposed_end)
+                if word_end > start:
+                    end = word_end
 
         chunk = paragraph[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
+        if not chunk:
+            raise ValueError("Chunking produced an empty chunk from a non-empty paragraph.")
+        chunks.append(chunk)
 
         if end >= len(paragraph):
             break
 
-        next_start = max(start + target_size - overlap, end - overlap)
-        if next_start <= start:
-            next_start = start + max(60, target_size // 3)
-        start = next_start
+        overlap_start = max(start, end - overlap)
+        word_start = paragraph.rfind(" ", start, overlap_start)
+        start = word_start + 1 if word_start > start else overlap_start
 
-    return [chunk for chunk in chunks if chunk]
+    return chunks
 
 
-def build_document_chunks(text: str, target_size: int = DEFAULT_TARGET_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP) -> list[str]:
-    """Combine paragraph-level chunks into a final chunk list."""
+def chunk_text(
+    text: str,
+    target_size: int = DEFAULT_TARGET_CHUNK_SIZE,
+    overlap: int = DEFAULT_OVERLAP,
+) -> list[str]:
+    """Build paragraph-aware chunks near the target size with useful overlap."""
+    if target_size <= 0:
+        raise ValueError("target_size must be positive.")
+    if overlap < 0 or overlap >= target_size:
+        raise ValueError("overlap must be non-negative and smaller than target_size.")
+
     paragraphs = split_into_paragraphs(text)
     if not paragraphs:
         return []
 
     chunks: list[str] = []
-    current_group: list[str] = []
-    current_length = 0
+    current_chunk = ""
 
     for paragraph in paragraphs:
-        paragraph_len = len(paragraph)
-        if paragraph_len <= target_size:
-            if current_group and current_length + len(paragraph) + 1 > target_size:
-                chunks.extend(chunk_paragraph(" ".join(current_group), target_size, overlap))
-                current_group = []
-                current_length = 0
-            current_group.append(paragraph)
-            current_length = len(" ".join(current_group))
-        else:
-            if current_group:
-                chunks.extend(chunk_paragraph(" ".join(current_group), target_size, overlap))
-                current_group = []
-                current_length = 0
+        if len(paragraph) > target_size:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = ""
             chunks.extend(chunk_paragraph(paragraph, target_size, overlap))
-
-    if current_group:
-        chunks.extend(chunk_paragraph(" ".join(current_group), target_size, overlap))
-
-    return [chunk.strip() for chunk in chunks if chunk and chunk.strip()]
-
-
-def load_chunks(doc_dir: str | Path = "documents", target_size: int = DEFAULT_TARGET_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP) -> list[dict[str, Any]]:
-    """Load every text file in the documents directory and return chunk metadata."""
-    folder = Path(doc_dir)
-    if not folder.exists():
-        return []
-
-    all_chunks: list[dict[str, Any]] = []
-    for document_path in sorted(folder.glob("*.txt")):
-        if not document_path.is_file():
             continue
 
-        raw_text = document_path.read_text(encoding="utf-8")
-        cleaned_text = normalize_text(raw_text)
-        document_chunks = build_document_chunks(cleaned_text, target_size=target_size, overlap=overlap)
+        if not current_chunk:
+            current_chunk = paragraph
+        elif len(current_chunk) + 2 + len(paragraph) <= target_size:
+            current_chunk = f"{current_chunk}\n\n{paragraph}"
+        else:
+            chunks.append(current_chunk.strip())
+            overlap_text = _overlap_tail(current_chunk, overlap)
+            candidate = f"{overlap_text}\n\n{paragraph}".strip()
+            current_chunk = candidate if len(candidate) <= target_size + overlap else paragraph
 
-        for chunk_index, chunk_text in enumerate(document_chunks):
-            cleaned_chunk = " ".join(chunk_text.split())
-            if not cleaned_chunk:
-                continue
-            all_chunks.append(
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return [chunk for chunk in chunks if chunk and chunk.strip()]
+
+
+def build_chunks(
+    documents: list[dict[str, str]],
+    target_size: int = DEFAULT_TARGET_CHUNK_SIZE,
+    overlap: int = DEFAULT_OVERLAP,
+) -> list[dict[str, Any]]:
+    """Convert loaded documents into reusable text chunks and metadata records."""
+    chunks: list[dict[str, Any]] = []
+    for document in documents:
+        document_chunks = chunk_text(document["text"], target_size=target_size, overlap=overlap)
+        if not document_chunks:
+            raise ValueError(f"Document '{document['source']}' produced no chunks.")
+
+        for chunk_index, chunk in enumerate(document_chunks):
+            chunks.append(
                 {
-                    "source": document_path.name,
+                    "text": chunk.strip(),
+                    "source": document["source"],
                     "chunk_index": chunk_index,
-                    "text": cleaned_chunk,
+                    "file_type": document["file_type"],
+                    "topic": document["topic"],
                 }
             )
+    return chunks
 
-    return all_chunks
+
+def load_chunks(
+    doc_dir: str | Path = "documents",
+    target_size: int = DEFAULT_TARGET_CHUNK_SIZE,
+    overlap: int = DEFAULT_OVERLAP,
+) -> list[dict[str, Any]]:
+    """Convenience function retained for later retrieval milestones."""
+    return build_chunks(load_documents(doc_dir), target_size=target_size, overlap=overlap)
+
+
+def validate_documents(documents: list[dict[str, str]]) -> None:
+    """Raise clear errors for missing document metadata or empty content."""
+    required_fields = {"source", "text", "file_type", "topic"}
+    errors: list[str] = []
+    for index, document in enumerate(documents):
+        missing = [field for field in required_fields if not document.get(field)]
+        if missing:
+            errors.append(f"Document {index} is missing metadata: {', '.join(sorted(missing))}.")
+        elif not document["text"].strip():
+            errors.append(f"Document '{document['source']}' contains only whitespace.")
+    if errors:
+        raise ValueError("Document validation failed:\n- " + "\n- ".join(errors))
+
+
+def validate_chunks(chunks: list[dict[str, Any]]) -> list[str]:
+    """Raise errors for invalid chunks and return warnings for unusually small chunks."""
+    if not chunks:
+        raise ValueError("Chunk validation failed: no chunks were produced.")
+
+    required_fields = {"source", "text", "chunk_index", "file_type", "topic"}
+    errors: list[str] = []
+    warnings: list[str] = []
+    for index, chunk in enumerate(chunks):
+        missing = [field for field in required_fields if field not in chunk or chunk[field] in (None, "")]
+        if missing:
+            errors.append(f"Chunk {index} is missing metadata: {', '.join(sorted(missing))}.")
+            continue
+        if not str(chunk["text"]).strip():
+            errors.append(f"Chunk {index} from '{chunk['source']}' is empty or whitespace-only.")
+            continue
+        if len(str(chunk["text"])) < MIN_USEFUL_CHUNK_SIZE:
+            warnings.append(
+                f"Suspiciously tiny chunk: {chunk['source']} #{chunk['chunk_index']} "
+                f"is {len(str(chunk['text']))} characters."
+            )
+
+    if errors:
+        raise ValueError("Chunk validation failed:\n- " + "\n- ".join(errors))
+    return warnings
+
+
+def chunk_statistics(documents: list[dict[str, str]], chunks: list[dict[str, Any]]) -> dict[str, Any]:
+    """Calculate deterministic, human-readable ingestion statistics."""
+    lengths = [len(str(chunk["text"])) for chunk in chunks]
+    per_document = Counter(str(chunk["source"]) for chunk in chunks)
+    file_type_counts = Counter(document["file_type"] for document in documents)
+    return {
+        "documents_loaded": len(documents),
+        "txt_files": file_type_counts["txt"],
+        "pdf_files": file_type_counts["pdf"],
+        "total_chunks": len(chunks),
+        "min_chunk_length": min(lengths),
+        "max_chunk_length": max(lengths),
+        "average_chunk_length": mean(lengths),
+        "chunks_per_document": dict(sorted(per_document.items())),
+    }
+
+
+def select_representative_chunks(chunks: list[dict[str, Any]], count: int = 5) -> list[dict[str, Any]]:
+    """Select long, readable chunks from distinct sources in a stable order."""
+    by_source: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for chunk in chunks:
+        by_source[str(chunk["source"])].append(chunk)
+
+    samples: list[dict[str, Any]] = []
+    for source in sorted(by_source, key=str.lower):
+        first_chunk = next(
+            (chunk for chunk in by_source[source] if int(chunk["chunk_index"]) == 0),
+            None,
+        )
+        best_chunk = first_chunk or sorted(
+            by_source[source], key=lambda chunk: (-len(str(chunk["text"])), int(chunk["chunk_index"]))
+        )[0]
+        samples.append(best_chunk)
+        if len(samples) == count:
+            break
+    return samples
+
+
+def print_cleaned_preview(document: dict[str, str], preview_length: int = 600) -> None:
+    preview = document["text"][:preview_length].rstrip()
+    if len(document["text"]) > preview_length:
+        preview += "..."
+    print("\nCLEANED DOCUMENT PREVIEW")
+    print(f"Source: {document['source']}")
+    print(preview)
+
+
+def print_summary(statistics: dict[str, Any], warnings: list[str]) -> None:
+    print("\nINGESTION STATISTICS")
+    print(f"Documents loaded: {statistics['documents_loaded']}")
+    print(f".txt files: {statistics['txt_files']}")
+    print(f".pdf files: {statistics['pdf_files']}")
+    print(f"Total chunks: {statistics['total_chunks']}")
+    print(f"Minimum chunk length: {statistics['min_chunk_length']} characters")
+    print(f"Maximum chunk length: {statistics['max_chunk_length']} characters")
+    print(f"Average chunk length: {statistics['average_chunk_length']:.1f} characters")
+    print("Chunks per document:")
+    for source, count in statistics["chunks_per_document"].items():
+        print(f"- {source}: {count}")
+
+    for warning in warnings:
+        print(f"WARNING: {warning}")
+    if statistics["total_chunks"] < 50 or statistics["total_chunks"] > 2000:
+        print(
+            "WARNING: Total chunks are outside the assignment's suggested 50-2,000 range. "
+            "Review the corpus and chunking results before changing the planned strategy."
+        )
+
+
+def print_sample_chunks(samples: list[dict[str, Any]]) -> None:
+    for number, chunk in enumerate(samples, start=1):
+        print(f"\nChunk {number}")
+        print(f"Source: {chunk['source']}")
+        print(f"Chunk Index: {chunk['chunk_index']}")
+        print(f"Length: {len(str(chunk['text']))} characters\n")
+        print(chunk["text"])
 
 
 def main() -> None:
-    chunks = load_chunks()
-    document_paths = sorted(Path("documents").glob("*.txt"))
-    print(f"Documents loaded: {len(document_paths)}")
-    print(f"Total chunks generated: {len(chunks)}")
+    documents = load_documents()
+    validate_documents(documents)
+    print_cleaned_preview(documents[0])
 
-    if chunks:
-        print("\nSample chunks:")
-        sample_chunks = chunks[:5]
-        for entry in sample_chunks:
-            print(f"- source={entry['source']} | chunk_index={entry['chunk_index']}")
-            print(entry["text"])
-            print("-" * 60)
-    else:
-        print("No valid chunks were generated. Add .txt files to the documents/ directory and rerun this script.")
+    chunks = build_chunks(documents)
+    warnings = validate_chunks(chunks)
+    statistics = chunk_statistics(documents, chunks)
+    print_summary(statistics, warnings)
+
+    samples = select_representative_chunks(chunks)
+    if len(samples) != 5:
+        raise ValueError(f"Expected five representative chunks but found {len(samples)}.")
+    print_sample_chunks(samples)
 
 
 if __name__ == "__main__":
