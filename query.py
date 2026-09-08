@@ -96,6 +96,22 @@ def print_result(question: str, result: dict) -> None:
         print(f"- {source}")
 
 
+def print_retrieval_results(question: str, retrieval_results: list[dict]) -> None:
+    """Print full retrieval-only results in a README-friendly format."""
+    print("QUESTION")
+    print(question)
+    print("\nRETRIEVED CHUNKS")
+    for rank, chunk in enumerate(retrieval_results, start=1):
+        print(f"\nRank: {rank}")
+        print(f"Source: {chunk['source']}")
+        print(f"Chunk Index: {chunk['chunk_index']}")
+        print(f"File Type: {chunk['file_type']}")
+        print(f"Topic: {chunk['topic']}")
+        print(f"Distance: {chunk['distance']:.4f}\n")
+        print(chunk["text"])
+        print("-" * 50)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ask a question against the Howard Mechanical Engineering corpus.")
     parser.add_argument("question", nargs="?", help="Question to ask the ChromaDB retrieval pipeline.")
@@ -108,7 +124,7 @@ def main() -> None:
 
     retrieval_results = retrieve(args.question, top_k=args.top_k)
     if args.retrieve_only:
-        print_result(args.question, {"retrieved_chunks": retrieval_results, "answer": "", "sources": []})
+        print_retrieval_results(args.question, retrieval_results)
         return
 
     try:

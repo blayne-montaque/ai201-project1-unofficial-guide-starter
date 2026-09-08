@@ -142,54 +142,65 @@ Major topics include conservation of mass, momentum, and energy as applied to fl
 
 ## Embedding Model
 
-**Model used:** all-MiniLM-L6-v2 via sentence-transformers  
-**Production tradeoff reflection:** This model is a practical local choice for a student project because it is lightweight, easy to run offline, and fast enough for small corpora. In a higher-stakes deployment, I would weigh tradeoffs around embedding quality on domain-specific engineering language, larger context windows, multilingual support, latency, and whether a hosted model would provide better retrieval quality at a higher cost.
+**Model used:** `all-MiniLM-L6-v2` via `sentence-transformers`
+**Execution:** Local; no embedding API key or hosted embedding service is used.
+**Production tradeoff reflection:** This model is a practical local choice for a 127-chunk student project because it is lightweight and fast. For a larger or higher-stakes corpus, I would compare domain-specific retrieval accuracy, latency, multilingual needs, model size, and operating cost before choosing a larger local or hosted embedding model.
 
 ## Vector Store and Retrieval
 
-The vector store is built in [vector_store.py](vector_store.py) using ChromaDB with persistent local storage in the chroma_db directory. Retrieval is performed with top-k semantic search using the default value of 4. The project supports a retrieval-only workflow so the user can inspect the actual chunks without using Groq.
+The vector store is built in [vector_store.py](vector_store.py) using ChromaDB with persistent local storage in `chroma_db/`. The validated build embeds all 127 ingestion chunks and stores the original chunk text plus `source`, `chunk_index`, `file_type`, and `topic` metadata. Retrieval uses semantic top-k search with a default value of 4. The collection is named `howard_meche_guide` and can be recreated safely with `--rebuild`.
 
 Example command:
 
-python query.py "What do students say about Thermodynamics?" --retrieve-only
+python vector_store.py --rebuild
+python query.py "Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?" --retrieve-only
 
 ## Retrieval Test Results
 
-These retrieval results are from the current placeholder corpus and reflect the actual output of the system. They should be replaced with real student-source evidence once the corpus is populated.
+The following results came from the rebuilt 127-record ChromaDB collection using `all-MiniLM-L6-v2` and `top_k=4`.
 
-**Query 1:** What do students say about Thermodynamics?
+### Query 1
 
-Top returned chunks:
-- thermodynamics.txt | chunk_index=0 | distance=0.3088
-- heat_transfer.txt | chunk_index=0 | distance=0.5527
-- dynamics.txt | chunk_index=0 | distance=0.5883
-- fluid_mechanics.txt | chunk_index=0 | distance=0.6025
+**Question:** Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?
 
-Relevance explanation: The top result is the Thermodynamics document itself, which is the expected match. The remaining results are still related engineering courses and show the placeholder corpus is semantically near the same topic family, but not yet rich enough to answer real student opinions.
+| Rank | Source | Chunk index | Distance |
+|---|---|---:|---:|
+| 1 | instrumentation.txt | 0 | 0.3548 |
+| 2 | instrumentation.txt | 1 | 0.4252 |
+| 3 | Mechanical Engineering Undergraduate Handbook.pdf | 57 | 0.5354 |
+| 4 | solid_mechanics.txt | 1 | 0.5515 |
 
----
+Relevance: The first chunk explicitly names MEEG-316 Instrumentation and Experimentation and includes instruments, sensors, experimental error, and uncertainty analysis. The expected source is rank 1, so this test passes.
 
-**Query 2:** What should I expect from Fluid Mechanics?
+### Query 2
 
-Top returned chunks:
-- fluid_mechanics.txt | chunk_index=0 | distance=0.5765
-- thermodynamics.txt | chunk_index=0 | distance=0.6750
-- vibrations.txt | chunk_index=0 | distance=0.6815
-- dynamics.txt | chunk_index=0 | distance=0.7111
+**Question:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
 
-Relevance explanation: The Fluid Mechanics document is ranked first, which is consistent with the query. The rest are neighboring engineering-course placeholders and show that the system is retrieving thematically related material without more detailed source content.
+| Rank | Source | Chunk index | Distance |
+|---|---|---:|---:|
+| 1 | heat_transfer.txt | 0 | 0.3100 |
+| 2 | heat_transfer.txt | 1 | 0.3998 |
+| 3 | professor_recommendations.txt | 0 | 0.4841 |
+| 4 | professor_recommendations.txt | 1 | 0.5127 |
 
----
+Relevance: The rank-1 chunk is the MEEG-403 Heat Transfer description and directly states conduction, convection, and radiation. The expected source is rank 1, so this test passes.
 
-**Query 3:** Which classes involve MATLAB?
+### Query 3
 
-Top returned chunks:
-- engineering_survival_guide.txt | chunk_index=0 | distance=0.7505
-- vibrations.txt | chunk_index=0 | distance=0.7981
-- dynamics.txt | chunk_index=0 | distance=0.8000
-- materials_science.txt | chunk_index=0 | distance=0.8061
+**Question:** How is Howard Mechanical Engineering Senior Project structured across the senior year?
 
-Relevance explanation: The highest-scoring result references MATLAB in the engineering survival guide placeholder. This demonstrates that the retrieval system can find a likely relevant clue, but the corpus still lacks detailed course-specific information to support a confident answer.
+| Rank | Source | Chunk index | Distance |
+|---|---|---:|---:|
+| 1 | senior_design.txt | 1 | 0.3011 |
+| 2 | senior_design.txt | 0 | 0.3193 |
+| 3 | Mechanical Engineering Undergraduate Handbook.pdf | 1 | 0.4139 |
+| 4 | Mechanical Engineering Undergraduate Handbook.pdf | 21 | 0.4226 |
+
+Relevance: The first two chunks state that MEEG-441 and MEEG-442 form a two-course sequence, with Senior Project II continuing the work begun in Senior Project I. The expected source is rank 1, so this test passes.
+
+### Diagnostic ranking limitation
+
+The current evaluation question, “What topics are listed for MEEG-304 Thermodynamics in the guide?”, returned `applied_thermodynamics.txt` chunk 0 at rank 1 (distance 0.3044). The expected `thermodynamics.txt` chunk 0 appeared at rank 6 (distance 0.3593), outside the default top 4. The collection was freshly rebuilt with 127 records and the query used the same MiniLM model as indexing, so this is recorded as an embedding-ranking limitation for this wording rather than a storage or chunking failure.
 
 ## Grounded Generation
 
