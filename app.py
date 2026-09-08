@@ -14,19 +14,20 @@ MODE_CHOICES = [
     ("BM25", "bm25"),
 ]
 EXAMPLE_QUESTIONS = [
-    "What topics are covered in MEEG-304 Thermodynamics?",
-    "Which course teaches MATLAB?",
-    "What are the three modes of heat transfer?",
-    "How is Senior Project structured?",
+    ("Thermodynamics", "What topics are covered in MEEG-304?"),
+    ("MATLAB", "Which course teaches MATLAB?"),
+    ("Heat Transfer", "What are the three modes of heat transfer?"),
+    ("Senior Project", "How is Senior Project structured?"),
 ]
 
 
 def _metadata_choices() -> tuple[list[str], list[str]]:
     """Build filter choices from the same validated chunks used by retrieval."""
     chunks = load_chunks()
-    topics = sorted({str(chunk["topic"]) for chunk in chunks})
-    sources = sorted({str(chunk["source"]) for chunk in chunks})
-    return topics, sources
+    return (
+        sorted({str(chunk["topic"]) for chunk in chunks}),
+        sorted({str(chunk["source"]) for chunk in chunks}),
+    )
 
 
 TOPIC_CHOICES, SOURCE_CHOICES = _metadata_choices()
@@ -42,15 +43,15 @@ def _filters_from_controls(topic: str, source: str) -> dict[str, str] | None:
 
 
 def _source_markup(sources: list[str]) -> str:
-    """Keep programmatic sources compact in the visible conversation."""
+    """Attach the already-programmatic source list to its supporting answer."""
     if not sources:
         return ""
-    labels = " &nbsp;•&nbsp; ".join(f"`{source}`" for source in sources)
-    return f"\n\n---\n**Sources**  {labels}"
+    labels = " &middot; ".join(f"`{source}`" for source in sources)
+    return f"\n\n---\n<small><strong>Sources:</strong> {labels}</small>"
 
 
 def _retrieval_details(result: dict[str, Any], mode: str) -> list[dict[str, Any]]:
-    """Return compact, inspectable evidence without exposing it in the main chat."""
+    """Expose concise latest-turn evidence only in the collapsed details panel."""
     return [
         {
             "rank": chunk["rank"],
@@ -74,12 +75,12 @@ def ask_question(
     topic: str,
     source: str,
 ):
-    """Add a grounded response to the chat while preserving user-turn memory."""
+    """Add one grounded response without changing the underlying RAG flow."""
     cleaned_question = (question or "").strip()
     messages = list(chat_history or [])
     memory = list(memory_history or [])
     if not cleaned_question:
-        return messages, "", memory, []
+        return gr.update(value=messages), "", memory, [], gr.update()
 
     messages.append({"role": "user", "content": cleaned_question})
     try:
@@ -106,123 +107,309 @@ def ask_question(
         details = []
 
     messages.append({"role": "assistant", "content": assistant_message})
-    return messages, "", memory, details
+    return gr.update(value=messages, visible=True), "", memory, details, gr.update(visible=False)
 
 
 def clear_conversation():
-    """Clear both rendered messages and the history used for follow-up resolution."""
-    return [], "", [], []
+    """Clear rendered messages and the user-turn state used for follow-up resolution."""
+    return gr.update(value=[], visible=False), "", [], [], gr.update(visible=True)
 
 
 CSS = """
 :root {
-  --howard-blue: #12355b;
-  --howard-blue-soft: #eaf1f8;
-  --howard-red: #bf2539;
-  --ink: #162333;
-  --muted: #657386;
-  --line: #dce4ed;
-  --card: rgba(255, 255, 255, 0.94);
+  --navy: #102f55;
+  --navy-soft: #eaf1f8;
+  --red: #b3374b;
+  --ink: #182535;
+  --muted: #657184;
+  --line: #e2e7ee;
+  --canvas: #f8f8f5;
+  --surface: #ffffff;
 }
 
-body, .gradio-container {
-  background: #f5f7fa !important;
-  color: var(--ink);
+html, body, .gradio-container {
+  color-scheme: light !important;
+  background: var(--canvas) !important;
+  color: var(--ink) !important;
 }
 
 .gradio-container {
+  --body-background-fill: var(--canvas) !important;
+  --body-text-color: var(--ink) !important;
+  --background-fill-primary: var(--surface) !important;
+  --background-fill-secondary: #f4f6f8 !important;
+  --block-background-fill: var(--surface) !important;
+  --block-border-color: var(--line) !important;
+  --input-background-fill: var(--surface) !important;
+  --input-border-color: var(--line) !important;
+  --input-border-color-focus: #8aa3c0 !important;
+  --border-color-primary: var(--line) !important;
+  --color-accent: var(--navy) !important;
   max-width: none !important;
-  padding: 0 1.25rem 2.5rem !important;
+  min-height: 100vh;
+  padding: 0 1.25rem 2rem !important;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
-#app-shell { max-width: 1040px; margin: 0 auto; }
-#hero {
-  margin: 1.25rem 0 1.4rem;
-  padding: 1.65rem 1.8rem;
-  background: var(--howard-blue);
-  color: white;
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(18, 53, 91, 0.16);
+.gradio-container *, .gradio-container input, .gradio-container textarea {
+  color: var(--ink);
 }
-#hero h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.55rem); letter-spacing: -0.04em; }
-#hero p { max-width: 700px; margin: 0.45rem 0 0; color: #e4edf7; font-size: 1.03rem; }
-#hero .eyebrow { color: #f4bec6; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.085em; text-transform: uppercase; }
-#hero .disclaimer { margin-top: 0.9rem; color: #c9d9e8; font-size: 0.8rem; }
 
-.surface, #chat-card, #about-card {
-  background: var(--card);
+#app-shell { max-width: 1000px; margin: 0 auto; }
+footer { display: none !important; }
+
+#app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 0 1.05rem;
+}
+.brand { display: flex; align-items: center; gap: 0.75rem; }
+.brand-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #c8d6e6;
+  border-radius: 10px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.brand-title { margin: 0; color: var(--navy); font-size: 1.08rem; font-weight: 750; letter-spacing: -0.02em; }
+.brand-subtitle { margin-top: 0.1rem; color: var(--muted); font-size: 0.8rem; }
+.status-badge {
+  flex: none;
+  border: 1px solid #dce5ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #526276;
+  font-size: 0.76rem;
+  font-weight: 650;
+  padding: 0.38rem 0.65rem;
+}
+.status-badge::before { color: var(--red); content: "●"; font-size: 0.62rem; margin-right: 0.36rem; vertical-align: 0.04rem; }
+
+#top-actions {
+  flex: 0 0 220px !important;
+  min-width: 220px !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.55rem !important;
+}
+#top-actions > * { flex: 0 0 auto !important; min-width: auto !important; }
+#clear-button {
+  min-width: auto !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #6a7787 !important;
+  font-size: 0.78rem !important;
+  padding: 0.35rem 0.5rem !important;
+  white-space: nowrap !important;
+}
+#clear-button:hover { color: var(--navy) !important; background: #eef3f8 !important; }
+
+#settings-panel, #source-panel, #about-panel {
+  margin: 0 0 0.65rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#settings-panel > button, #source-panel > button, #about-panel > button {
+  min-height: 28px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #617084 !important;
+  font-size: 0.78rem !important;
+  font-weight: 650 !important;
+  padding: 0.25rem 0 !important;
+}
+#settings-panel > button:hover, #source-panel > button:hover, #about-panel > button:hover { color: var(--navy) !important; }
+#settings-panel .wrap, #source-panel .wrap, #about-panel .wrap {
+  margin-top: 0.35rem;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(25, 45, 69, 0.05);
+  border-radius: 12px;
+  background: #fff !important;
+  box-shadow: 0 4px 16px rgba(16, 47, 85, 0.04);
 }
-#chat-card { padding: 0.8rem; }
-#chatbot { border: 0 !important; background: transparent !important; }
-#chatbot .message { border-radius: 14px !important; }
-#chatbot .message.user { background: var(--howard-blue) !important; }
-#chatbot .message.bot { border: 1px solid var(--line) !important; }
+#settings-panel .wrap { padding: 0.7rem 0.8rem; }
+#settings-panel label { color: #657184 !important; font-size: 0.74rem !important; }
 
-#composer { margin-top: 0.85rem; }
-#question-input textarea { min-height: 54px !important; }
-#send-button { min-width: 90px; background: var(--howard-red) !important; border-color: var(--howard-red) !important; }
-#clear-button { border-color: #bcc9d6 !important; color: #455569 !important; }
+#conversation-shell {
+  overflow: hidden;
+  min-height: 520px;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  background: var(--surface) !important;
+  box-shadow: 0 10px 30px rgba(18, 40, 67, 0.055);
+}
 
-.section-label { margin: 1.15rem 0 0.45rem; color: var(--muted); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; }
-.example-button { border-radius: 999px !important; border-color: #cbd7e4 !important; color: var(--howard-blue) !important; background: white !important; font-size: 0.82rem !important; }
-.example-button:hover { border-color: var(--howard-blue) !important; background: var(--howard-blue-soft) !important; }
+#empty-state {
+  display: flex;
+  min-height: 450px;
+  align-items: center;
+  justify-content: center;
+  padding: 2.2rem 1.7rem 1.5rem;
+  background: var(--surface) !important;
+}
+.empty-copy { max-width: 700px; margin: 0 auto 1.6rem; text-align: center; }
+.empty-copy h1 { margin: 0; color: var(--navy); font-size: clamp(1.85rem, 4vw, 2.6rem); letter-spacing: -0.045em; }
+.empty-copy h2 { margin: 0.4rem 0 0; color: var(--ink); font-size: 1.12rem; font-weight: 600; letter-spacing: -0.015em; }
+.empty-copy p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.92rem; }
 
-#controls, #about-card { padding: 0.85rem 1rem; }
-#controls { margin-top: 1rem; }
-#controls .wrap { gap: 0.8rem !important; }
-#about-card { margin-top: 1rem; color: var(--muted); font-size: 0.87rem; }
-#about-card strong { color: var(--ink); }
-#about-card p { margin: 0.35rem 0; }
-.gradio-container .accordion { border: 1px solid var(--line) !important; border-radius: 12px !important; background: var(--card) !important; }
+#suggestion-grid { gap: 0.7rem !important; }
+.suggestion-card {
+  min-height: 94px !important;
+  border: 1px solid #dde5ee !important;
+  border-radius: 13px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  color: var(--ink) !important;
+  font-size: 0.84rem !important;
+  line-height: 1.38 !important;
+  padding: 0.8rem 0.9rem !important;
+  text-align: left !important;
+  white-space: pre-line !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease !important;
+}
+.suggestion-card:hover {
+  border-color: #9db2ca !important;
+  background: #fbfdff !important;
+  box-shadow: 0 8px 18px rgba(16, 47, 85, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+#chatbot, #chatbot .wrap, #chatbot .bubble-wrap, #chatbot .message-wrap {
+  background: var(--surface) !important;
+}
+#chatbot { min-height: 465px !important; padding: 1.1rem 1.15rem 0.5rem !important; }
+#chatbot .message { box-shadow: none !important; }
+#chatbot .message.user, #chatbot [data-testid="user"] {
+  border: 1px solid #d9e5f1 !important;
+  background: var(--navy-soft) !important;
+  color: var(--navy) !important;
+}
+#chatbot .message.bot, #chatbot [data-testid="bot"] {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+}
+#chatbot .message p, #chatbot .message li, #chatbot .message strong { color: inherit !important; }
+#chatbot .message code { border: 1px solid #e0e6ed; border-radius: 5px; background: #f4f6f8; color: #33465e; padding: 0.08rem 0.24rem; }
+
+#composer {
+  align-items: center !important;
+  gap: 0.55rem !important;
+  margin: 0.5rem 0.7rem 0.7rem !important;
+  padding: 0.42rem !important;
+  border: 1px solid #cad7e4 !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 4px 14px rgba(16, 47, 85, 0.04);
+}
+#composer .wrap, #composer .form { background: #fff !important; }
+#question-input, #question-input .wrap, #question-input textarea { background: transparent !important; box-shadow: none !important; }
+#question-input textarea { min-height: 28px !important; color: var(--ink) !important; font-size: 0.92rem !important; padding: 0.45rem 0.55rem !important; }
+#question-input textarea::placeholder { color: #8a97a7 !important; }
+#send-button {
+  min-width: 78px !important;
+  min-height: 38px !important;
+  border: 1px solid var(--navy) !important;
+  border-radius: 10px !important;
+  background: var(--navy) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  font-size: 0.84rem !important;
+}
+#send-button:hover { background: #17416f !important; }
+
+#source-panel { margin-top: 0.2rem !important; }
+#source-panel .wrap { padding: 0.45rem 0.7rem !important; }
+#source-panel label { color: #657184 !important; font-size: 0.75rem !important; }
+#source-panel textarea, #source-panel pre, #source-panel code { font-size: 0.75rem !important; }
+#about-panel { margin-top: 0.6rem !important; }
+#about-panel .wrap { padding: 0.7rem 0.9rem !important; color: var(--muted) !important; font-size: 0.8rem !important; }
 
 @media (max-width: 700px) {
-  .gradio-container { padding: 0 0.7rem 1.5rem !important; }
-  #hero { margin-top: 0.7rem; padding: 1.3rem 1.15rem; }
-  #composer { gap: 0.5rem !important; }
-  #send-button, #clear-button { min-width: 0; }
-}
-
-@media (prefers-color-scheme: dark) {
-  body, .gradio-container { background: #101824 !important; }
-  .surface, #chat-card, #about-card, .gradio-container .accordion { background: #172332 !important; border-color: #304154 !important; }
-  #about-card, .section-label { color: #b4c0ce; }
-  #about-card strong { color: #eef4fb; }
-  .example-button { background: #172332 !important; color: #d5e5f5 !important; border-color: #43576c !important; }
+  .gradio-container { padding: 0 0.75rem 1rem !important; }
+  #app-header { align-items: flex-start; }
+  .status-badge { font-size: 0.7rem; }
+  #conversation-shell { min-height: 500px; border-radius: 14px !important; }
+  #empty-state { min-height: 430px; padding: 1.5rem 1rem 1rem; }
+  #suggestion-grid { gap: 0.5rem !important; }
+  .suggestion-card { min-height: 86px !important; font-size: 0.78rem !important; }
+  #chatbot { min-height: 440px !important; padding: 0.85rem !important; }
+  #composer { margin: 0.45rem !important; }
 }
 """
 
 
 with gr.Blocks(title="Howard ME Guide") as demo:
     with gr.Column(elem_id="app-shell"):
-        gr.HTML(
-            """
-            <section id="hero">
-              <div class="eyebrow">AI201 Project 1 · The Unofficial Guide</div>
-              <h1>Howard ME Guide</h1>
-              <p>Ask questions about Howard Mechanical Engineering courses, curriculum, and student guidance.</p>
-              <div class="disclaimer">Unofficial student project. Answers are grounded in the included document collection.</div>
-            </section>
-            """
-        )
+        with gr.Row(elem_id="app-header"):
+            gr.HTML(
+                """
+                <div class="brand">
+                  <div class="brand-mark">ME</div>
+                  <div>
+                    <div class="brand-title">Howard ME Guide</div>
+                    <div class="brand-subtitle">Unofficial AI course &amp; curriculum assistant</div>
+                  </div>
+                </div>
+                """
+            )
+            with gr.Row(elem_id="top-actions", scale=0):
+                gr.HTML('<div class="status-badge">16 documents</div>')
+                clear_button = gr.Button("Clear conversation", size="sm", elem_id="clear-button")
+
+        with gr.Accordion("Retrieval settings", open=False, elem_id="settings-panel"):
+            with gr.Row():
+                mode_box = gr.Dropdown(
+                    choices=MODE_CHOICES,
+                    value=DEFAULT_RETRIEVAL_MODE,
+                    label="Retrieval mode",
+                    info="Hybrid combines semantic similarity and BM25.",
+                )
+                topic_box = gr.Dropdown(choices=["All", *TOPIC_CHOICES], value="All", label="Topic")
+                source_box = gr.Dropdown(choices=["All", *SOURCE_CHOICES], value="All", label="Source")
 
         chat_history_state = gr.State([])
         memory_state = gr.State([])
-        with gr.Group(elem_id="chat-card"):
+        with gr.Group(elem_id="conversation-shell"):
+            with gr.Column(elem_id="empty-state", visible=True) as empty_state:
+                gr.HTML(
+                    """
+                    <div class="empty-copy">
+                      <h1>Howard ME Guide</h1>
+                      <h2>What can I help you find?</h2>
+                      <p>Ask about courses, prerequisites, curriculum, professors, or student guidance.</p>
+                    </div>
+                    """
+                )
+                suggestion_buttons = []
+                for first, second in ((0, 1), (2, 3)):
+                    with gr.Row(elem_id="suggestion-grid"):
+                        for position in (first, second):
+                            title, question = EXAMPLE_QUESTIONS[position]
+                            suggestion_buttons.append(
+                                gr.Button(f"{title}\n{question}", elem_classes="suggestion-card")
+                            )
+
             chatbot = gr.Chatbot(
                 value=[],
                 layout="bubble",
-                height=440,
-                placeholder="Start with a course, curriculum, or study-guidance question.",
+                height=465,
+                visible=False,
                 elem_id="chatbot",
                 show_label=False,
             )
             with gr.Row(elem_id="composer"):
                 question_box = gr.Textbox(
-                    placeholder="Ask about a course, requirement, or topic…",
+                    placeholder="Ask about a course, prerequisite, or topic…",
                     lines=1,
                     max_lines=4,
                     show_label=False,
@@ -230,62 +417,40 @@ with gr.Blocks(title="Howard ME Guide") as demo:
                     scale=8,
                 )
                 send_button = gr.Button("Send", variant="primary", elem_id="send-button", scale=1)
-                clear_button = gr.Button("Clear", elem_id="clear-button", scale=1)
 
-        gr.HTML('<div class="section-label">Try an example</div>')
-        with gr.Row():
-            example_buttons = [
-                gr.Button(question, elem_classes="example-button") for question in EXAMPLE_QUESTIONS
-            ]
+        with gr.Accordion("Latest sources & retrieval details", open=False, elem_id="source-panel"):
+            retrieval_details = gr.JSON(label="Latest retrieved chunks", value=[])
 
-        with gr.Group(elem_id="controls"):
-            with gr.Row():
-                mode_box = gr.Dropdown(
-                    choices=MODE_CHOICES,
-                    value=DEFAULT_RETRIEVAL_MODE,
-                    label="Retrieval mode",
-                    info="Hybrid combines semantic similarity and BM25 using Reciprocal Rank Fusion.",
-                    scale=1,
-                )
-                with gr.Accordion("Advanced filters", open=False):
-                    topic_box = gr.Dropdown(
-                        choices=["All", *TOPIC_CHOICES], value="All", label="Topic filter"
-                    )
-                    source_box = gr.Dropdown(
-                        choices=["All", *SOURCE_CHOICES], value="All", label="Source filter"
-                    )
-
-        with gr.Accordion("Sources & retrieval details", open=False):
-            gr.Markdown("The latest turn’s retrieved chunks. Supporting sources also appear directly below each answer.")
-            retrieval_details = gr.JSON(label="Latest retrieval details", value=[])
-
-        with gr.Accordion("About this system", open=False):
+        with gr.Accordion("About this guide", open=False, elem_id="about-panel"):
             gr.HTML(
-                """
-                <div id="about-card">
-                  <p><strong>Retrieval:</strong> Hybrid by default, with semantic and BM25 comparison modes.</p>
-                  <p><strong>Embedding model:</strong> all-MiniLM-L6-v2 &nbsp; · &nbsp; <strong>Corpus:</strong> 16 documents, 127 chunks</p>
-                  <p>Conversation memory resolves follow-up course references; retrieved documents remain the only factual source.</p>
-                </div>
-                """
+                "16 documents &middot; 127 validated chunks &middot; all-MiniLM-L6-v2 embeddings &middot; "
+                "Hybrid BM25 + semantic retrieval. Answers are grounded only in the included document collection."
             )
 
         event_inputs = [question_box, chat_history_state, memory_state, mode_box, topic_box, source_box]
-        event_outputs = [chatbot, question_box, memory_state, retrieval_details]
-        send_button.click(fn=ask_question, inputs=event_inputs, outputs=event_outputs).then(
-            fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state
-        )
-        question_box.submit(fn=ask_question, inputs=event_inputs, outputs=event_outputs).then(
-            fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state
-        )
-        clear_button.click(
+        event_outputs = [chatbot, question_box, memory_state, retrieval_details, empty_state]
+        send_event = send_button.click(fn=ask_question, inputs=event_inputs, outputs=event_outputs)
+        send_event.then(fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state)
+        submit_event = question_box.submit(fn=ask_question, inputs=event_inputs, outputs=event_outputs)
+        submit_event.then(fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state)
+        clear_event = clear_button.click(
             fn=clear_conversation,
-            outputs=[chatbot, question_box, memory_state, retrieval_details],
-        ).then(fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state)
+            outputs=[chatbot, question_box, memory_state, retrieval_details, empty_state],
+        )
+        clear_event.then(fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state)
 
-        for prompt, button in zip(EXAMPLE_QUESTIONS, example_buttons, strict=True):
-            button.click(fn=lambda value=prompt: value, outputs=question_box)
+        for (_title, prompt), button in zip(EXAMPLE_QUESTIONS, suggestion_buttons, strict=True):
+            example_event = button.click(fn=lambda value=prompt: value, outputs=question_box)
+            example_event.then(fn=ask_question, inputs=event_inputs, outputs=event_outputs).then(
+                fn=lambda messages: messages, inputs=chatbot, outputs=chat_history_state
+            )
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", share=False, show_error=False, css=CSS)
+    demo.launch(
+        server_name="127.0.0.1",
+        share=False,
+        show_error=False,
+        css=CSS,
+        theme=gr.themes.Base(),
+    )
