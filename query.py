@@ -112,13 +112,17 @@ def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
     client = Groq(api_key=get_api_key())
     try:
         prompt = build_prompt(question.strip(), retrieval_results)
-        completion = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=prompt,
-            temperature=0.0,
-            max_tokens=300,
-        )
-        raw_answer = (completion.choices[0].message.content or "").strip()
+        raw_answer = ""
+        for _attempt in range(2):
+            completion = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=prompt,
+                temperature=0.0,
+                max_tokens=300,
+            )
+            raw_answer = (completion.choices[0].message.content or "").strip()
+            if raw_answer:
+                break
     except Exception as exc:
         status_code = getattr(exc, "status_code", None)
         error_label = exc.__class__.__name__

@@ -189,8 +189,9 @@ Grounding works as follows:
 2. `query.py` formats those chunks as the model context.
 3. The system prompt permits only claims supported by that context and forbids outside knowledge or unsupported inference.
 4. Groq generates a concise answer from the retrieved context.
-5. Source filenames are derived programmatically from chunks that share at least three meaningful terms with the final answer; the model does not invent citations.
-6. When context is insufficient, the answer is exactly `I don't have enough information in the provided documents to answer that.` and the source list is empty.
+5. If Groq returns an empty completion, the same generation request is retried once. A second empty completion remains an explicit runtime failure rather than a fabricated refusal.
+6. Source filenames are derived programmatically from chunks that share at least three meaningful terms with the final answer; the model does not invent citations.
+7. When context is insufficient, the answer is exactly `I don't have enough information in the provided documents to answer that.` and the source list is empty.
 
 ### Real Example Responses
 
@@ -236,9 +237,9 @@ The final validation launched the app at `http://127.0.0.1:7862` and confirmed t
 | 2 | Which course focuses on instruments, sensors, experimental error, and uncertainty analysis? | MEEG-316 Instrumentation and Experimentation plus the listed measurement topics | MEEG-316 Instrumentation & Experimentation Lab | instrumentation.txt | Partially Accurate |
 | 3 | What three major modes of heat transfer should a student expect to study in Heat Transfer? | Conduction, convection, and radiation | The three major modes of heat transfer covered are conduction, convection, and radiation. | heat_transfer.txt | Accurate |
 | 4 | How is Howard Mechanical Engineering Senior Project structured across the senior year? | MEEG-441 and MEEG-442 two-course sequence; II continues I | A two-course, year-long sequence; MEEG-442 continues the MEEG-441 design work | senior_design.txt; Mechanical Engineering Undergraduate Handbook.pdf | Accurate |
-| 5 | According to the guide, which course is mainly about designing aircraft wings? | Exact insufficient-information refusal | I don't have enough information in the provided documents to answer that. | None | Accurate |
+| 5 | According to the guide, which course is mainly about designing aircraft wings? | Exact insufficient-information refusal | REQUEST FAILED: The generation service returned an empty response. Please try again. | None | Inaccurate (runtime failure) |
 
-The evaluation report was generated from a live run. Question 2 is partially accurate because the system identifies the correct course and source but omits the requested instruments/sensors, experimental-error, and uncertainty details. Question 1 is inaccurate because the correct MEEG-304 description was not retrieved in the top-four context; the model correctly refused rather than inventing an answer.
+The evaluation report was generated from a live run. Question 2 is partially accurate because the system identifies the correct course and source but omits the requested instruments/sensors, experimental-error, and uncertainty details. Question 1 is inaccurate because the correct MEEG-304 description was not retrieved in the top-four context; the model correctly refused rather than inventing an answer. Question 5 exhausted the one empty-response retry and therefore did not evaluate the RAG refusal behavior; it is recorded as an explicit runtime failure rather than as a fabricated refusal. Question 1 remains the primary documented pipeline failure because it is reproducibly caused by retrieval ranking.
 
 ## Failure Case Analysis
 

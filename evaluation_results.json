@@ -115,7 +115,7 @@
     "number": 4,
     "question": "How is Howard Mechanical Engineering Senior Project structured across the senior year?",
     "expected_answer": "MEEG-441 Senior Project I and MEEG-442 Senior Project II are a two-course sequence; Project II continues the team design study begun in Project I.",
-    "actual_response": "Howard Mechanical Engineering\u2019s senior project is a two\u2011course sequence that spans the entire senior year.  \n- **MEEG\u2011441 Senior Project\u202fI** is taken in the first senior semester and is an independent team design study supervised by faculty.  \n- **MEEG\u2011442 Senior Project\u202fII** follows in the second senior semester and continues the design work begun in MEEG\u2011441.  \n\nEach course is worth 3 credits, and the project includes a formal report that must be submitted for faculty review before graduation.",
+    "actual_response": "Howard Mechanical Engineering\u2019s senior project is a two\u2011course sequence that spans the entire senior year.  \n- **Senior Project\u202fI (MEEG\u2011441)** is taken in the first senior semester. It is an independent team design study supervised by faculty, and students must submit a formal project report for review before graduation.  \n- **Senior Project\u202fII (MEEG\u2011442)** is taken in the second senior semester and continues the design work begun in MEEG\u2011441.  \n\nEach course is worth 3 credits, and the sequence requires students to carry the same team project through both semesters.",
     "sources": [
       "senior_design.txt",
       "Mechanical Engineering Undergraduate Handbook.pdf"
@@ -154,36 +154,11 @@
     "number": 5,
     "question": "According to the guide, which course is mainly about designing aircraft wings?",
     "expected_answer": "The exact insufficient-information refusal, because the provided documents do not answer this question.",
-    "actual_response": "I don't have enough information in the provided documents to answer that.",
+    "actual_response": "REQUEST FAILED: The generation service returned an empty response. Please try again.",
     "sources": [],
-    "top_retrieval_result": {
-      "source": "engineering_survival_guide.txt",
-      "chunk_index": 3,
-      "distance": 0.4992
-    },
-    "top_retrieval_distance": 0.4992,
-    "retrieval_top_k": [
-      {
-        "source": "engineering_survival_guide.txt",
-        "chunk_index": 3,
-        "distance": 0.4992
-      },
-      {
-        "source": "fluid_mechanics.txt",
-        "chunk_index": 3,
-        "distance": 0.5066
-      },
-      {
-        "source": "professor_recommendations.txt",
-        "chunk_index": 6,
-        "distance": 0.5176
-      },
-      {
-        "source": "professor_recommendations.txt",
-        "chunk_index": 5,
-        "distance": 0.5182
-      }
-    ],
-    "judgment": "Accurate"
+    "top_retrieval_result": null,
+    "top_retrieval_distance": null,
+    "retrieval_top_k": [],
+    "judgment": "Inaccurate"
   }
 ]
