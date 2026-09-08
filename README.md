@@ -215,7 +215,9 @@ Grounding works as follows:
 
 ## Query Interface
 
-[app.py](app.py) provides a local Gradio interface with a question textbox, Ask button, Enter-to-submit behavior, an answer field, a source display, and retrieved-context JSON. It keeps per-session user-turn history so follow-up course references can be resolved for retrieval, while documents remain the only factual context. It displays concise errors instead of Python tracebacks and is not publicly hosted.
+[app.py](app.py) provides a local Gradio chat interface called **Howard ME Guide**. It has a persistent per-session conversation, Send and Clear controls, Enter-to-submit behavior, and four example questions. Each grounded answer shows only its programmatically derived supporting filenames directly beneath the response; the exact insufficient-information refusal shows no sources. A collapsed **Sources & retrieval details** panel exposes the latest chunk ranks and scores for a demo without cluttering the conversation.
+
+Hybrid is selected by default, with compact Semantic and BM25 alternatives. A collapsed **Advanced filters** panel offers real `topic` and `source` metadata choices, while **About this system** summarizes the corpus and embedding model. Per-session user-turn history resolves follow-up course references for retrieval, while documents remain the only factual context. The interface displays concise errors instead of Python tracebacks and is not publicly hosted.
 
 Run it with:
 
