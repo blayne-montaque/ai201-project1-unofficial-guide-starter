@@ -14,92 +14,82 @@ The goal of this guide is to collect that type of student knowledge and make it 
 
 The knowledge base currently contains 16 documents covering the Howard University Mechanical Engineering program, major required courses, technical electives, curriculum guidance, and student-perspective professor recommendations.
 
-The corpus intentionally combines official Howard University information with an unofficial student perspective. Official sources provide factual information such as course descriptions, prerequisites, curriculum structure, and degree requirements, while the student-authored material provides practical recommendations that would normally be harder to find on an official university website.
+The corpus combines official Howard University information with student-authored perspective. Official sources provide factual information such as course descriptions, prerequisites, curriculum structure, and degree requirements, while the student-authored material adds practical recommendations that are not normally available in official university documents.
 
 ### Current Corpus
 
-1. `Mechanical Engineering Undergraduate Handbook.pdf`
+1. `documents/Mechanical Engineering Undergraduate Handbook.pdf`
    - Official Howard University Mechanical Engineering Undergraduate Program Handbook.
    - Contains the four-year curriculum, degree requirements, prerequisites and co-requisites, technical electives, academic policies, advising information, faculty information, and department resources.
 
-2. `thermodynamics.txt`
+2. `documents/thermodynamics.txt`
    - Covers MEEG-304 Thermodynamics.
-   - Includes major thermodynamics topics, its position in the Mechanical Engineering curriculum, and its relationship to later thermal-fluid courses.
+   - Includes major thermodynamics topics, its place in the Mechanical Engineering curriculum, and its relationship to later thermal-fluid courses.
 
-3. `applied_thermodynamics.txt`
+3. `documents/applied_thermodynamics.txt`
    - Covers MEEG-306 Applied Thermodynamics.
    - Includes applications such as thermodynamic cycles, combustion, engines, compressors, refrigeration, and energy systems.
 
-4. `fluid_mechanics.txt`
+4. `documents/fluid_mechanics.txt`
    - Covers MEEG-307 Fluid Mechanics.
    - Includes fluid properties, statics, conservation of mass, momentum and energy, prerequisites, and connections to later thermal-fluid courses.
 
-5. `heat_transfer.txt`
+5. `documents/heat_transfer.txt`
    - Covers MEEG-403 Heat Transfer.
    - Includes conduction, convection, radiation, steady and transient heat transfer, and its relationship to Thermodynamics and Fluid Mechanics.
 
-6. `dynamics.txt`
+6. `documents/dynamics.txt`
    - Covers CIEG-302 Dynamics.
    - Includes particle and rigid-body motion, kinematics, kinetics, work-energy, impulse-momentum, and its role as a foundation for later dynamics courses.
 
-7. `solid_mechanics.txt`
+7. `documents/solid_mechanics.txt`
    - Covers MEEG-204 Solid Mechanics and related laboratory work.
    - Includes stress, strain, bending, Mohr's circle, deformation, and mechanical-property measurement.
 
-8. `materials_science.txt`
+8. `documents/materials_science.txt`
    - Covers MEEG-209 Materials Science.
    - Includes relationships between material structure, processing, properties, and engineering performance.
 
-9. `engineering_computations.txt`
+9. `documents/engineering_computations.txt`
    - Covers MEEG-207 Introduction to Engineering Computations.
    - Includes algorithm development, computational engineering problem solving, programming, and MATLAB.
 
-10. `system_dynamics.txt`
+10. `documents/system_dynamics.txt`
     - Covers MEEG-301 System Dynamics.
     - Includes mathematical modeling, dynamic systems, feedback, controls, and mechanical/electrical/thermal system behavior.
 
-11. `instrumentation.txt`
+11. `documents/instrumentation.txt`
     - Covers MEEG-316 Instrumentation and Experimentation.
     - Includes engineering sensors, measurement systems, experimental data, error, and uncertainty analysis.
 
-12. `vibrations.txt`
+12. `documents/vibrations.txt`
     - Covers MEEG-418 Vibration Analysis.
     - Includes single- and multi-degree-of-freedom vibration systems, mode shapes, numerical methods, and computational vibration analysis.
 
-13. `senior_design.txt`
+13. `documents/senior_design.txt`
     - Covers the MEEG-441 and MEEG-442 Senior Project sequence.
     - Includes team-based engineering design, project development, reporting, and the two-semester senior design structure.
 
-14. `mechanical_engineering_program.txt`
+14. `documents/mechanical_engineering_program.txt`
     - Provides a broader overview of Howard University's Mechanical Engineering program.
     - Covers major areas such as design and manufacturing, thermal and energy systems, mechanics, aerospace, experimentation, and engineering analysis.
 
-15. `engineering_survival_guide.txt`
+15. `documents/engineering_survival_guide.txt`
     - Provides a student-oriented overview of navigating the Howard Mechanical Engineering curriculum.
     - Connects foundational courses with later upper-level courses and highlights prerequisite chains, technical electives, and general curriculum planning.
 
-16. `professor_recommendations.txt`
+16. `documents/professor_recommendations.txt`
     - Student-authored recommendations based on firsthand course experience.
     - Includes comments on Emmanuel K. Glakpe, Achille Messac, Naren Vira, Nikolai Priezjev, and Gbadebo Owolabi.
     - Discusses teaching and problem-solving styles, relevant courses, areas of specialization, and suggestions for succeeding in their classes.
 
 ### Source Strategy
 
-Most course-specific documents were created by extracting and reorganizing publicly available information from Howard University Mechanical Engineering program materials and course descriptions. The original Mechanical Engineering Undergraduate Handbook is also retained as a PDF so that the retrieval system can access the source document directly.
+Most course-specific documents were created by extracting and reorganizing publicly available information from Howard University Mechanical Engineering program materials and course descriptions. The original Mechanical Engineering Undergraduate Handbook is retained as a PDF so the retrieval system can access the source document directly.
 
 The professor recommendation document and portions of the engineering survival guide add student-generated knowledge that is not normally available in official course descriptions. These documents are clearly distinguished from official university information so the system does not present personal recommendations as university policy.
 
-Using both types of documents allows the guide to answer factual questions such as:
-
-- "What are the prerequisites for Fluid Mechanics?"
-- "When do Mechanical Engineering students take Thermodynamics?"
-- "What technical electives are available in aerospace?"
-
-while also supporting unofficial-guide questions such as:
-
-- "Who would you recommend for Thermodynamics?"
-- "Which professor should I consider if I am interested in controls?"
-- "What courses should I expect during junior year?"
+Using both types of documents allows the guide to answer factual questions such as course prerequisites, curriculum sequence, and technical-elective availability while also supporting unofficial-guide questions about professor recommendations and navigating the program.
 
 ---
 
@@ -107,9 +97,9 @@ while also supporting unofficial-guide questions such as:
 
 I will use **paragraph-aware chunking** with a target chunk size of approximately **800 characters** and an overlap of approximately **150 characters**.
 
-I chose paragraph-aware chunking because these documents are student notes and course reflections. Most individual ideas are naturally grouped into paragraphs. Keeping those paragraphs together should preserve more meaning than blindly cutting the text every fixed number of characters.
+I chose paragraph-aware chunking because most of the corpus consists of short-to-medium course guides, program summaries, and student recommendations organized into paragraphs, while the handbook contains longer structured sections. Most individual ideas are still naturally grouped into paragraphs. Keeping those paragraphs together should preserve more meaning than blindly cutting the text every fixed number of characters.
 
-The target of around 800 characters should be large enough for a chunk to contain a complete thought, such as an explanation of what makes a course difficult or what students should expect from a lab, while still being small enough for semantic search to retrieve a specific topic instead of an entire document.
+The target of around 800 characters should be large enough for a chunk to contain a complete thought, such as a course description, prerequisite explanation, professor recommendation, or what students should expect from a lab, while still being small enough for semantic search to retrieve a specific topic instead of an entire document.
 
 I am also using about 150 characters of overlap between neighboring chunks. The overlap is useful when an explanation continues across a chunk boundary. Without overlap, part of an important idea could end up in one chunk while the rest is placed in another, making both chunks less useful when retrieved independently.
 
@@ -211,18 +201,18 @@ I will use five questions with specific expected answers.
 #### Question 1
 
 **Question:**  
-What major analysis method should a student expect to use in Thermodynamics?
+What topics are listed for MEEG-304 Thermodynamics in the guide?
 
 **Expected Answer:**  
-The system should identify energy balances and control-volume analysis as major problem-solving methods used in Thermodynamics.
+The system should identify the laws of thermodynamics, properties of pure substances, entropy, and availability as major topics covered in MEEG-304 Thermodynamics.
 
 #### Question 2
 
 **Question:**  
-Which course in the document collection uses sensors, calibration, data acquisition, and MATLAB?
+Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?
 
 **Expected Answer:**  
-Instrumentation. The response should identify Instrumentation as involving sensors, calibration, data acquisition, MATLAB, and experimental measurements.
+MEEG-316 Instrumentation and Experimentation. The response should identify instruments or sensors together with experimental error and uncertainty analysis.
 
 #### Question 3
 
@@ -235,10 +225,10 @@ Conduction, convection, and radiation.
 #### Question 4
 
 **Question:**  
-What kinds of work should a Mechanical Engineering student expect during Senior Design?
+How is Howard Mechanical Engineering Senior Project structured across the senior year?
 
 **Expected Answer:**  
-The response should identify activities such as teamwork, design reviews, documentation, prototyping, system integration, and testing.
+The response should identify MEEG-441 Senior Project I and MEEG-442 Senior Project II as a two-course sequence, with Senior Project II continuing the team design study begun in Senior Project I.
 
 #### Question 5
 
@@ -319,7 +309,7 @@ The second response should correctly interpret the follow-up as referring to The
 
 ## Anticipated Challenges
 
-One challenge is that the documents contain student-written information rather than standardized textbook descriptions. Different documents may use different terminology to describe similar concepts. Semantic embeddings should help with this, but some queries could still retrieve unexpected chunks.
+One challenge is that the corpus mixes official Howard source material with student-authored guidance. Different documents may use different terminology, level of detail, and tone to describe similar concepts. Semantic embeddings should help with this, but some queries could still retrieve unexpected chunks.
 
 A second challenge is choosing the right chunk size. If a paragraph or explanation is split in the wrong location, the retrieved chunk may only contain part of the information necessary to answer a question. The 150-character overlap is intended to reduce this problem, but I will still inspect the generated chunks manually.
 
@@ -343,7 +333,7 @@ Metadata filtering can improve precision but can also exclude relevant informati
 
 ```mermaid
 flowchart TD
-    A["Student-Authored .txt Documents"] --> B["Document Ingestion & Cleaning"]
+    A["Howard ME Source Documents (.txt + .pdf)"] --> B["Document Ingestion & Cleaning"]
     B --> C["Configurable Paragraph-Aware Chunking"]
 
     C --> D["MiniLM Embeddings"]
@@ -368,7 +358,7 @@ flowchart TD
     C -. "Strategy A vs. Strategy B" .-> P["Chunking Comparison"]
 ```
 
-The pipeline begins with student-authored text documents. The ingestion step loads and cleans the documents before the configurable paragraph-aware chunker divides them into retrievable sections.
+The pipeline begins with Howard Mechanical Engineering source documents in both `.txt` and `.pdf` formats. The ingestion step loads and cleans the documents before the configurable paragraph-aware chunker divides them into retrievable sections.
 
 Each chunk is converted into an embedding using `all-MiniLM-L6-v2` and stored in ChromaDB with its source metadata. The same chunks are also indexed using BM25 for keyword-based retrieval.
 
@@ -392,7 +382,7 @@ I will give the AI tool the **Documents** and **Chunking Strategy** sections of 
 
 The generated code should:
 
-- load `.txt` documents,
+- load both `.txt` and `.pdf` documents,
 - clean unnecessary whitespace,
 - preserve paragraph structure where possible,
 - create chunks around the specified 800-character target,

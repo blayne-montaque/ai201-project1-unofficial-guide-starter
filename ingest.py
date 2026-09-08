@@ -11,6 +11,10 @@ DEFAULT_TARGET_CHUNK_SIZE = 800
 DEFAULT_OVERLAP = 150
 MIN_USEFUL_CHUNK_SIZE = 80
 SUPPORTED_FILE_TYPES = {".txt": "txt", ".pdf": "pdf"}
+METADATA_LINE_PATTERN = re.compile(
+    r"^(?:SOURCE(?:\s+(?:URL|PAGE))?|COURSE|CREDITS|CATEGORY|TOPIC|AUTHOR|NOTE)\s*:",
+    re.IGNORECASE,
+)
 
 
 def topic_from_source(source: str) -> str:
@@ -71,18 +75,22 @@ def extract_pdf_text(pdf_path: Path) -> str:
     return extracted_text
 
 
-def load_documents(doc_dir: str | Path = "documents") -> list[dict[str, str]]:
-    """Load and clean every supported document while retaining source metadata."""
+def discover_document_files(doc_dir: str | Path = "documents") -> list[Path]:
+    """Return every file in the documents directory in a stable order."""
     folder = Path(doc_dir)
     if not folder.exists():
         raise FileNotFoundError(f"Documents directory does not exist: {folder}")
     if not folder.is_dir():
         raise NotADirectoryError(f"Documents path is not a directory: {folder}")
+    return sorted((path for path in folder.iterdir() if path.is_file()), key=lambda path: path.name.lower())
+
+
+def load_documents(doc_dir: str | Path = "documents") -> list[dict[str, str]]:
+    """Load and clean every supported document while retaining source metadata."""
+    folder = Path(doc_dir)
 
     documents: list[dict[str, str]] = []
-    for document_path in sorted(folder.iterdir(), key=lambda path: path.name.lower()):
-        if not document_path.is_file():
-            continue
+    for document_path in discover_document_files(doc_dir):
 
         file_type = SUPPORTED_FILE_TYPES.get(document_path.suffix.lower())
         if file_type is None:
@@ -232,6 +240,52 @@ def chunk_text(
     return [chunk for chunk in chunks if chunk and chunk.strip()]
 
 
+def is_low_information_chunk(text: str) -> bool:
+    """Identify empty or metadata-only chunks without discarding short factual prose."""
+    if not text or not text.strip():
+        return True
+
+    content_lines: list[str] = []
+    for line in text.splitlines():
+        cleaned_line = line.strip()
+        if not cleaned_line or re.fullmatch(r"[-=_]{3,}", cleaned_line):
+            continue
+        if METADATA_LINE_PATTERN.match(cleaned_line):
+            continue
+        content_lines.append(cleaned_line)
+
+    content = " ".join(content_lines)
+    return not bool(re.search(r"[A-Za-z]{3,}", content))
+
+
+def merge_low_information_chunks(document_chunks: list[str], source: str) -> list[str]:
+    """Attach metadata-only fragments to nearby substantive chunks or fail clearly."""
+    merged_chunks: list[str] = []
+    leading_metadata: list[str] = []
+
+    for chunk in document_chunks:
+        cleaned_chunk = chunk.strip()
+        if is_low_information_chunk(cleaned_chunk):
+            if merged_chunks:
+                merged_chunks[-1] = f"{merged_chunks[-1]}\n\n{cleaned_chunk}".strip()
+            else:
+                leading_metadata.append(cleaned_chunk)
+            continue
+
+        if leading_metadata:
+            cleaned_chunk = "\n\n".join([*leading_metadata, cleaned_chunk])
+            leading_metadata = []
+        merged_chunks.append(cleaned_chunk)
+
+    if leading_metadata:
+        if merged_chunks:
+            metadata_block = "\n\n".join(leading_metadata)
+            merged_chunks[-1] = f"{merged_chunks[-1]}\n\n{metadata_block}".strip()
+        else:
+            raise ValueError(f"Document '{source}' contains metadata but no substantive content.")
+    return merged_chunks
+
+
 def build_chunks(
     documents: list[dict[str, str]],
     target_size: int = DEFAULT_TARGET_CHUNK_SIZE,
@@ -240,7 +294,10 @@ def build_chunks(
     """Convert loaded documents into reusable text chunks and metadata records."""
     chunks: list[dict[str, Any]] = []
     for document in documents:
-        document_chunks = chunk_text(document["text"], target_size=target_size, overlap=overlap)
+        document_chunks = merge_low_information_chunks(
+            chunk_text(document["text"], target_size=target_size, overlap=overlap),
+            document["source"],
+        )
         if not document_chunks:
             raise ValueError(f"Document '{document['source']}' produced no chunks.")
 
@@ -295,6 +352,11 @@ def validate_chunks(chunks: list[dict[str, Any]]) -> list[str]:
             continue
         if not str(chunk["text"]).strip():
             errors.append(f"Chunk {index} from '{chunk['source']}' is empty or whitespace-only.")
+            continue
+        if is_low_information_chunk(str(chunk["text"])):
+            errors.append(
+                f"Chunk {index} from '{chunk['source']}' contains only metadata or no meaningful content."
+            )
             continue
         if len(str(chunk["text"])) < MIN_USEFUL_CHUNK_SIZE:
             warnings.append(
@@ -354,6 +416,22 @@ def print_cleaned_preview(document: dict[str, str], preview_length: int = 600) -
     print(preview)
 
 
+def print_document_loading_report(discovered_files: list[Path], documents: list[dict[str, str]]) -> None:
+    """Print the complete discovery and successful-load record for validation."""
+    supported_files = [
+        path for path in discovered_files if path.suffix.lower() in SUPPORTED_FILE_TYPES
+    ]
+    print("DOCUMENT DISCOVERY")
+    print(f"Files discovered: {len(discovered_files)}")
+    for path in discovered_files:
+        file_type = SUPPORTED_FILE_TYPES.get(path.suffix.lower(), "unsupported")
+        print(f"- {path.name} ({file_type})")
+    print(f"Supported documents discovered: {len(supported_files)}")
+    print(f"Documents successfully loaded: {len(documents)}")
+    for document in documents:
+        print(f"- {document['source']} ({document['file_type']})")
+
+
 def print_summary(statistics: dict[str, Any], warnings: list[str]) -> None:
     print("\nINGESTION STATISTICS")
     print(f"Documents loaded: {statistics['documents_loaded']}")
@@ -386,8 +464,10 @@ def print_sample_chunks(samples: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
+    discovered_files = discover_document_files()
     documents = load_documents()
     validate_documents(documents)
+    print_document_loading_report(discovered_files, documents)
     print_cleaned_preview(documents[0])
 
     chunks = build_chunks(documents)
