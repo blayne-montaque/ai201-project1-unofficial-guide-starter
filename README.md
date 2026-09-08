@@ -2,14 +2,14 @@
 
 ## Domain
 
-This project builds a local RAG system for student-generated knowledge about Howard University Mechanical Engineering courses. The goal is to make course expectations, workload patterns, and technical themes searchable without depending on official catalog wording alone. The knowledge is valuable because it captures student experience and practical expectations that are often scattered across notes, study groups, and informal course discussions.
+This project is a local RAG system for Howard University Mechanical Engineering course and program information. It combines official Howard course and program materials with clearly labeled student-perspective guidance, making course topics, curriculum structure, and practical guidance searchable through natural-language questions. It does not represent every source as a firsthand student review.
 
 ## Document Sources
 
-The repository contains 16 Howard Mechanical Engineering source documents: 15 `.txt` files and one Mechanical Engineering Undergraduate Handbook PDF. The corpus combines official program information with clearly labeled student-perspective material.
+The repository contains 16 Howard Mechanical Engineering source documents: 15 `.txt` files and one Mechanical Engineering Undergraduate Handbook PDF.
 
-| # | Source | Type | URL or file path |
-|---|--------|------|-----------------|
+| # | Source | Type | File path |
+|---|---|---|---|
 | 1 | Mechanical Engineering Undergraduate Handbook.pdf | official handbook | documents/Mechanical Engineering Undergraduate Handbook.pdf |
 | 2 | thermodynamics.txt | course guide | documents/thermodynamics.txt |
 | 3 | applied_thermodynamics.txt | course guide | documents/applied_thermodynamics.txt |
@@ -24,39 +24,37 @@ The repository contains 16 Howard Mechanical Engineering source documents: 15 `.
 | 12 | vibrations.txt | course guide | documents/vibrations.txt |
 | 13 | senior_design.txt | course guide | documents/senior_design.txt |
 | 14 | mechanical_engineering_program.txt | program overview | documents/mechanical_engineering_program.txt |
-| 15 | engineering_survival_guide.txt | curriculum guidance | documents/engineering_survival_guide.txt |
-| 16 | professor_recommendations.txt | student perspective | documents/professor_recommendations.txt |
+| 15 | engineering_survival_guide.txt | student-oriented curriculum guidance | documents/engineering_survival_guide.txt |
+| 16 | professor_recommendations.txt | student-perspective course/professor guidance | documents/professor_recommendations.txt |
 
 ## Architecture
 
-The implemented pipeline is:
-
-Document ingestion -> paragraph-aware chunking -> all-MiniLM-L6-v2 embeddings -> ChromaDB -> top-k retrieval -> Groq grounded generation -> Gradio interface.
+Documents -> cleaning and paragraph-aware chunking -> `all-MiniLM-L6-v2` embeddings -> ChromaDB -> semantic top-k retrieval -> grounded Groq generation -> programmatic source attribution -> Gradio interface.
 
 ## Document Pipeline
 
-The ingestion pipeline in [ingest.py](ingest.py) loads all 16 documents from `documents/`: 15 `.txt` files and one `.pdf` handbook. It cleans text while preserving useful paragraph boundaries, then creates paragraph-aware chunks near 800 characters with about 150 characters of overlap. This fits the course guides, student recommendations, and longer handbook sections because it keeps related ideas together while still producing focused chunks for later retrieval. Each chunk keeps its source filename, index, file type, and topic metadata. Validation merges metadata-only fragments into nearby substantive text and rejects any that remain standalone.
+[ingest.py](ingest.py) discovers and loads all 16 supported files from `documents/`: 15 UTF-8 text files and one PDF handbook. It preserves useful paragraph boundaries while cleaning text, emits source filename, chunk index, file type, and topic metadata, and validates every output chunk. Metadata-only fragments are merged into nearby substantive text or rejected, so a source line cannot be emitted as a standalone retrieval chunk.
 
-Run it directly with:
+The validated ingestion run produced 127 chunks. Run it with:
 
-python ingest.py
+```powershell
+.\.venv\Scripts\python.exe ingest.py
+```
 
 ## Chunking Strategy
 
-The current implementation uses a paragraph-aware chunking strategy with a target size of 800 characters and an overlap of 150 characters. The chunking is intentionally not a blind fixed-width split: it first segments the text by paragraph, then composes and slices paragraphs while trying to keep sentence boundaries when possible. This works well for short student notes and keeps the corpus easy to debug and explain in a demo.
+The chunker is paragraph-aware, targets roughly 800 characters, and keeps about 150 characters of overlap. It combines short related paragraphs where possible and sentence- or word-splits long paragraphs. This preserves coherent course descriptions while retaining enough focus for semantic retrieval.
 
-**Chunk size:** 800 characters  
-**Overlap:** 150 characters  
-**Why these choices fit your documents:** Short-to-medium text documents benefit from preserving logical paragraphs while still allowing semantically related content to overlap across chunk boundaries.  
-**Final chunk count:** 127 chunks generated from the current 16-document corpus.
+- Target chunk size: 800 characters
+- Overlap: 150 characters
+- Validated corpus: 16 documents and 127 chunks
+- Validation: no empty, whitespace-only, or metadata-only chunks
 
-## Sample Chunks
+### Sample Chunks
 
-These five chunks are deterministic samples produced by running `ingest.py` on the current corpus.
+These are five deterministic samples from the validated current corpus.
 
-### Chunk 1
-
-**Source:** `applied_thermodynamics.txt`
+#### Chunk 1 — `applied_thermodynamics.txt`
 
 ```text
 SOURCE: Howard University Undergraduate Catalogue
@@ -74,9 +72,7 @@ Within the Howard Mechanical Engineering curriculum, Applied Thermodynamics is n
 It follows MEEG-304 Thermodynamics and is part of the thermal and energy side of the Mechanical Engineering curriculum.
 ```
 
-### Chunk 2
-
-**Source:** `dynamics.txt`
+#### Chunk 2 — `dynamics.txt`
 
 ```text
 SOURCE: Howard University College of Engineering and Architecture
@@ -92,9 +88,7 @@ The course also provides an introduction to vibrations and includes computer-aid
 Within the Howard Mechanical Engineering curriculum, Dynamics is taken during the second semester of the sophomore year.
 ```
 
-### Chunk 3
-
-**Source:** `engineering_computations.txt`
+#### Chunk 3 — `engineering_computations.txt`
 
 ```text
 SOURCE: Howard University College of Engineering and Architecture
@@ -110,9 +104,7 @@ Software packages such as MATLAB are used as engineering computation tools.
 The purpose of the course is therefore not only to teach programming syntax, but also to teach students how to translate engineering problems into algorithms that can be solved computationally.
 ```
 
-### Chunk 4
-
-**Source:** `engineering_survival_guide.txt`
+#### Chunk 4 — `engineering_survival_guide.txt`
 
 ```text
 SOURCE: Howard University Mechanical Engineering Undergraduate Program Materials
@@ -123,9 +115,7 @@ Howard University's Mechanical Engineering curriculum progresses from foundation
 Early coursework includes Calculus, Physics, Chemistry, Introduction to Engineering, Computer Aided Design, Statics, Engineering Computations, Dynamics, Solid Mechanics, and Materials Science.
 ```
 
-### Chunk 5
-
-**Source:** `fluid_mechanics.txt`
+#### Chunk 5 — `fluid_mechanics.txt`
 
 ```text
 SOURCE: Howard University College of Engineering and Architecture
@@ -140,26 +130,17 @@ The course covers fluid properties and fluid statics, including pressure variati
 Major topics include conservation of mass, momentum, and energy as applied to fluid systems. These principles are used to analyze fluid flow and engineering systems involving liquids and gases.
 ```
 
-## Embedding Model
+## Embeddings and Vector Store
 
-**Model used:** `all-MiniLM-L6-v2` via `sentence-transformers`
-**Execution:** Local; no embedding API key or hosted embedding service is used.
-**Production tradeoff reflection:** This model is a practical local choice for a 127-chunk student project because it is lightweight and fast. For a larger or higher-stakes corpus, I would compare domain-specific retrieval accuracy, latency, multilingual needs, model size, and operating cost before choosing a larger local or hosted embedding model.
+[vector_store.py](vector_store.py) embeds the 127 validated chunks locally with `sentence-transformers/all-MiniLM-L6-v2` and persists them in ChromaDB at `chroma_db/`. The collection is named `howard_meche_guide`; each record retains its original text, source, chunk index, file type, and topic. A rebuild verifies that 127 records were stored.
 
-## Vector Store and Retrieval
+`all-MiniLM-L6-v2` is a practical local choice for this small corpus because it is lightweight and fast. A production system should compare retrieval accuracy, latency, model size, domain performance, multilingual needs, and operating cost before selecting a larger local or hosted embedding model.
 
-The vector store is built in [vector_store.py](vector_store.py) using ChromaDB with persistent local storage in `chroma_db/`. The validated build embeds all 127 ingestion chunks and stores the original chunk text plus `source`, `chunk_index`, `file_type`, and `topic` metadata. Retrieval uses semantic top-k search with a default value of 4. The collection is named `howard_meche_guide` and can be recreated safely with `--rebuild`.
+## Retrieval
 
-Example command:
+Retrieval uses semantic top-k search with `top_k = 4`. The following real retrieval checks were made against the rebuilt 127-record collection.
 
-python vector_store.py --rebuild
-python query.py "Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?" --retrieve-only
-
-## Retrieval Test Results
-
-The following results came from the rebuilt 127-record ChromaDB collection using `all-MiniLM-L6-v2` and `top_k=4`.
-
-### Query 1
+### Instrumentation query
 
 **Question:** Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?
 
@@ -170,9 +151,9 @@ The following results came from the rebuilt 127-record ChromaDB collection using
 | 3 | Mechanical Engineering Undergraduate Handbook.pdf | 57 | 0.5354 |
 | 4 | solid_mechanics.txt | 1 | 0.5515 |
 
-Relevance: The first chunk explicitly names MEEG-316 Instrumentation and Experimentation and includes instruments, sensors, experimental error, and uncertainty analysis. The expected source is rank 1, so this test passes.
+The expected course source is ranked first. Its chunk explicitly names MEEG-316 Instrumentation and Experimentation and the measurement topics.
 
-### Query 2
+### Heat Transfer query
 
 **Question:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
 
@@ -183,9 +164,9 @@ Relevance: The first chunk explicitly names MEEG-316 Instrumentation and Experim
 | 3 | professor_recommendations.txt | 0 | 0.4841 |
 | 4 | professor_recommendations.txt | 1 | 0.5127 |
 
-Relevance: The rank-1 chunk is the MEEG-403 Heat Transfer description and directly states conduction, convection, and radiation. The expected source is rank 1, so this test passes.
+The rank-1 chunk explicitly states conduction, convection, and radiation.
 
-### Query 3
+### Senior Project query
 
 **Question:** How is Howard Mechanical Engineering Senior Project structured across the senior year?
 
@@ -196,37 +177,34 @@ Relevance: The rank-1 chunk is the MEEG-403 Heat Transfer description and direct
 | 3 | Mechanical Engineering Undergraduate Handbook.pdf | 1 | 0.4139 |
 | 4 | Mechanical Engineering Undergraduate Handbook.pdf | 21 | 0.4226 |
 
-Relevance: The first two chunks state that MEEG-441 and MEEG-442 form a two-course sequence, with Senior Project II continuing the work begun in Senior Project I. The expected source is rank 1, so this test passes.
+The first two results describe the MEEG-441/MEEG-442 sequence and that Senior Project II continues the work begun in Senior Project I.
 
-### Diagnostic ranking limitation
+## Grounded Generation and Attribution
 
-The current evaluation question, “What topics are listed for MEEG-304 Thermodynamics in the guide?”, returned `applied_thermodynamics.txt` chunk 0 at rank 1 (distance 0.3044). The expected `thermodynamics.txt` chunk 0 appeared at rank 6 (distance 0.3593), outside the default top 4. The collection was freshly rebuilt with 127 records and the query used the same MiniLM model as indexing, so this is recorded as an embedding-ranking limitation for this wording rather than a storage or chunking failure.
+[query.py](query.py) uses the Groq Python SDK and the configured `openai/gpt-oss-20b` model. The project previously tested a Llama model, but the active account returned a model-availability error; this working runtime model is therefore documented instead.
 
-## Grounded Generation
+Grounding works as follows:
 
-The grounded generation path is implemented in [query.py](query.py) with the Groq Python SDK. The runtime model is `openai/gpt-oss-20b`; the originally planned Llama model was unavailable to the configured Groq account. The system prompt permits only claims explicitly supported by the four retrieved chunks, forbids outside knowledge and inference, and requires this exact refusal when the context is insufficient: `I don't have enough information in the provided documents to answer that.`
+1. Semantic retrieval returns the top four chunks with metadata.
+2. `query.py` formats those chunks as the model context.
+3. The system prompt permits only claims supported by that context and forbids outside knowledge or unsupported inference.
+4. Groq generates a concise answer from the retrieved context.
+5. Source filenames are derived programmatically from chunks that share at least three meaningful terms with the final answer; the model does not invent citations.
+6. When context is insufficient, the answer is exactly `I don't have enough information in the provided documents to answer that.` and the source list is empty.
 
-Retrieved context is labeled with its source filename, chunk index, file type, and topic. The returned `sources` list is selected programmatically: a source is included only when its retrieved chunk shares at least three meaningful terms with the generated answer. The exact insufficient-information refusal always returns an empty source list.
-
-## Example Responses
-
-### Supported question: Engineering Computations
+### Real Example Responses
 
 **Query:** Which course explicitly teaches programming and software such as MATLAB?
 
-**Answer:** The course that explicitly teaches programming and software such as MATLAB is **MEEG‑207 Introduction to Engineering Computations**.
+**Answer:** The course that explicitly teaches programming and software such as MATLAB is **MEEG-207 Introduction to Engineering Computations**.
 
 **Sources:** `engineering_computations.txt`
-
-### Supported question: Heat Transfer
 
 **Query:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
 
 **Answer:** Conduction, convection, and radiation.
 
 **Sources:** `heat_transfer.txt`
-
-### Out-of-scope question
 
 **Query:** What are the best restaurants near the engineering building?
 
@@ -236,49 +214,94 @@ Retrieved context is labeled with its source filename, chunk index, file type, a
 
 ## Query Interface
 
-The application in [app.py](app.py) uses Gradio. It provides a question textbox, an Ask button, Enter-to-submit behavior, and separate Answer, Sources, and Retrieved context outputs. It displays concise errors for empty input, missing configuration, retrieval problems, and Groq failures instead of tracebacks.
+[app.py](app.py) provides a local Gradio interface with a question textbox, Ask button, Enter-to-submit behavior, an answer field, a source display, and retrieved-context JSON. It displays concise errors instead of Python tracebacks and is not publicly hosted.
 
-Launch the interface with:
+Run it with:
 
 ```powershell
 .\.venv\Scripts\python.exe app.py
 ```
 
-The validated local launch URL was `http://127.0.0.1:7861`.
+The final validation launched the app at `http://127.0.0.1:7862` and confirmed that the port accepted a local TCP connection.
 
-**Sample interaction transcript**
-
-> **User:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
->
-> **System:** Conduction, convection, and radiation.
->
-> **Sources:** `heat_transfer.txt`
+**Sample interaction:** Asking the Heat Transfer question above returned `Conduction, convection, and radiation.` with source `heat_transfer.txt`.
 
 ## Evaluation Report
 
-Milestone 6 evaluation is pending. The completed Milestone 4 retrieval evidence and Milestone 5 grounded-generation examples are recorded above; final accuracy judgments and failure analysis will be added during the evaluation milestone.
+[evaluate.py](evaluate.py) runs the five questions defined in [planning.md](planning.md), prints each actual response with the top-four retrieval results, assigns a concept-level judgment, and writes [evaluation_results.json](evaluation_results.json) from that runtime output.
 
-## Document Ingestion
+| # | Question | Expected answer | Actual response | Sources | Judgment |
+|---|---|---|---|---|---|
+| 1 | What topics are listed for MEEG-304 Thermodynamics in the guide? | Laws of thermodynamics, pure substances, entropy, and availability | I don't have enough information in the provided documents to answer that. | None | Inaccurate |
+| 2 | Which course focuses on instruments, sensors, experimental error, and uncertainty analysis? | MEEG-316 Instrumentation and Experimentation plus the listed measurement topics | MEEG-316 Instrumentation & Experimentation Lab | instrumentation.txt | Partially Accurate |
+| 3 | What three major modes of heat transfer should a student expect to study in Heat Transfer? | Conduction, convection, and radiation | The three major modes of heat transfer covered are conduction, convection, and radiation. | heat_transfer.txt | Accurate |
+| 4 | How is Howard Mechanical Engineering Senior Project structured across the senior year? | MEEG-441 and MEEG-442 two-course sequence; II continues I | A two-course, year-long sequence; MEEG-442 continues the MEEG-441 design work | senior_design.txt; Mechanical Engineering Undergraduate Handbook.pdf | Accurate |
+| 5 | According to the guide, which course is mainly about designing aircraft wings? | Exact insufficient-information refusal | I don't have enough information in the provided documents to answer that. | None | Accurate |
 
-The local ingestion pipeline scans 16 source documents: 15 `.txt` files and one PDF handbook. It cleans and chunks the content while keeping source filename, chunk index, file type, and topic metadata for retrieval and attribution.
+The evaluation report was generated from a live run. Question 2 is partially accurate because the system identifies the correct course and source but omits the requested instruments/sensors, experimental-error, and uncertainty details. Question 1 is inaccurate because the correct MEEG-304 description was not retrieved in the top-four context; the model correctly refused rather than inventing an answer.
+
+## Failure Case Analysis
+
+**Question that struggled:** What topics are listed for MEEG-304 Thermodynamics in the guide?
+
+**Observed retrieval behavior:** The top result was `applied_thermodynamics.txt` chunk 0 at distance 0.3044. The four retrieved chunks were that Applied Thermodynamics chunk plus handbook chunks 56, 53, and 55. The direct `thermodynamics.txt` chunk appeared at rank 6 at distance 0.3593 when the same query was checked with `--top-k 10`.
+
+**Actual generated response:** `I don't have enough information in the provided documents to answer that.`
+
+**Pipeline stage responsible:** Retrieval ranking. The MiniLM embedding recognized strong semantic similarity between the query and Applied Thermodynamics, so the related MEEG-306 material ranked above the direct MEEG-304 description. The default top-k cutoff of 4 excluded the chunk containing the required laws, pure-substance, entropy, and availability content. Grounded generation therefore had no valid evidence to use and refused.
+
+**Future improvement:** A hybrid lexical-plus-semantic ranker, metadata filtering, reranking, or a justified top-k adjustment could improve this exact-course query. None of those stretch features is implemented in this milestone.
+
+## Spec Reflection
+
+**How the specification helped:** The staged milestone structure required retrieval to be tested before generation. That separation exposed the Thermodynamics ranking problem independently of the language model and prevented a fluent generated answer from hiding a retrieval weakness.
+
+**How the implementation diverged:** The corpus includes a PDF handbook in addition to text documents, and the implementation adds validation for metadata-only fragments. Source attribution is also derived programmatically from supporting retrieved chunks instead of relying on the language model to compose citations. These additions preserve the required pipeline while making its evidence and failures easier to inspect.
+
+## AI Usage
+
+### Instance 1 — ingestion and chunking
+
+- **What I gave the AI:** The project requirements, corpus layout, and the paragraph-aware 800-character / 150-character-overlap plan.
+- **What it produced:** Python scaffolding for document discovery, text/PDF loading, cleaning, chunk construction, and chunk metadata.
+- **What I reviewed and changed:** I inspected the ingestion output after a metadata-only source fragment appeared, then directed changes that merge metadata with substantive prose or reject it. I reran ingestion to verify that all 16 documents load and the final 127 chunks contain no empty or metadata-only records.
+
+### Instance 2 — retrieval, generation, and attribution
+
+- **What I gave the AI:** The requirements for local MiniLM embeddings, ChromaDB retrieval, strict context-only Groq generation, and source attribution.
+- **What it produced:** Vector-store/query wiring, a grounded prompt, CLI output, and Gradio integration.
+- **What I reviewed and changed:** I tested retrieval outputs and live generation responses, observed that top-k filenames could expose irrelevant sources, and changed attribution so only chunks that substantively support the answer contribute a source. I also verified that insufficient-information refusals return no source list.
+
+### Instance 3 — evaluation and documentation
+
+- **What I gave the AI:** The existing planning evaluation questions and actual terminal results.
+- **What it produced:** A small reproducible evaluator and README organization.
+- **What I reviewed and changed:** I preserved the planning questions, reran them against the live system, retained the inaccurate Thermodynamics result, and based the report and failure analysis on the saved runtime data rather than predicted outputs.
 
 ## Running the Project
 
-From the repository root, use the existing virtual environment:
+From the repository root, use the project virtual environment:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe ingest.py
 .\.venv\Scripts\python.exe vector_store.py --rebuild
 .\.venv\Scripts\python.exe query.py "Which course explicitly teaches programming and software such as MATLAB?" --retrieve-only
-.\.venv\Scripts\python.exe query.py "What three modes of heat transfer are covered in MEEG-403 Heat Transfer?"
+.\.venv\Scripts\python.exe query.py "Which course explicitly teaches programming and software such as MATLAB?"
+.\.venv\Scripts\python.exe evaluate.py
 .\.venv\Scripts\python.exe app.py
 ```
 
 ## Demo Video
 
-[ADD DEMO VIDEO LINK AFTER RECORDING THE FINAL PRESENTATION]
+Demo video: [ADD LINK AFTER RECORDING]
 
-## AI Usage
+### Demo Checklist
 
-This project uses AI-assisted implementation. The assistant helped build the ingestion, ChromaDB retrieval, strict grounding prompt, CLI, and Gradio wiring. Runtime examples in this README were captured from the current local corpus and configured Groq account; no API key is stored in the repository or this document.
+Keep the recording to 3–5 minutes and show:
+
+1. The Gradio interface and the MATLAB query, including the MEEG-207 answer and `engineering_computations.txt` source.
+2. The Heat Transfer query, including conduction, convection, radiation, and `heat_transfer.txt`.
+3. The Thermodynamics weakness: show that related content ranks highly while the direct MEEG-304 chunk falls outside top-k 4.
+4. The out-of-scope restaurant query to demonstrate the exact refusal with no sources.
+5. The evaluation report and its documented judgments.

@@ -1,52 +1,146 @@
 from __future__ import annotations
 
-from query import answer_question
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+from query import INSUFFICIENT_INFORMATION_RESPONSE, answer_question
 
 
 EVALUATION_CASES = [
     {
-        "question": "What do students say about Thermodynamics?",
-        "expected_answer": "TBD — fill in after the final corpus is selected and reviewed.",
+        "question": "What topics are listed for MEEG-304 Thermodynamics in the guide?",
+        "expected_answer": "The laws of thermodynamics, properties of pure substances, entropy, and availability.",
     },
     {
-        "question": "What should I expect from Fluid Mechanics?",
-        "expected_answer": "TBD — fill in after the final corpus is selected and reviewed.",
+        "question": "Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?",
+        "expected_answer": "MEEG-316 Instrumentation and Experimentation, including instruments or sensors, experimental error, and uncertainty analysis.",
     },
     {
-        "question": "Which classes involve MATLAB?",
-        "expected_answer": "TBD — fill in after the final corpus is selected and reviewed.",
+        "question": "What three major modes of heat transfer should a student expect to study in Heat Transfer?",
+        "expected_answer": "Conduction, convection, and radiation.",
     },
     {
-        "question": "What is Senior Design like?",
-        "expected_answer": "TBD — fill in after the final corpus is selected and reviewed.",
+        "question": "How is Howard Mechanical Engineering Senior Project structured across the senior year?",
+        "expected_answer": "MEEG-441 Senior Project I and MEEG-442 Senior Project II are a two-course sequence; Project II continues the team design study begun in Project I.",
     },
     {
-        "question": "Which courses are especially math-heavy?",
-        "expected_answer": "TBD — fill in after the final corpus is selected and reviewed.",
+        "question": "According to the guide, which course is mainly about designing aircraft wings?",
+        "expected_answer": "The exact insufficient-information refusal, because the provided documents do not answer this question.",
     },
 ]
 
 
-def run_evaluation() -> None:
-    for index, item in enumerate(EVALUATION_CASES, start=1):
-        print(f"\n=== Evaluation {index} ===")
-        print(f"Question: {item['question']}")
-        print(f"Expected answer: {item['expected_answer']}")
+def normalized(text: str) -> str:
+    """Normalize text for concept-level, rather than exact-wording, evaluation."""
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def concept_count(answer: str, concept_groups: list[tuple[str, ...]]) -> int:
+    """Count expected concept groups represented in a generated answer."""
+    text = normalized(answer)
+    return sum(any(normalized(option) in text for option in group) for group in concept_groups)
+
+
+def judge_answer(case_index: int, answer: str) -> str:
+    """Apply the planning document's required concepts to an actual response."""
+    if case_index == 5:
+        return "Accurate" if answer == INSUFFICIENT_INFORMATION_RESPONSE else "Inaccurate"
+
+    expected_concepts = {
+        1: [("laws of thermodynamics",), ("pure substances",), ("entropy",), ("availability",)],
+        2: [("meeg 316", "instrumentation and experimentation"), ("instruments", "sensors"), ("experimental error", "uncertainty")],
+        3: [("conduction",), ("convection",), ("radiation",)],
+        4: [("meeg 441", "senior project i"), ("meeg 442", "senior project ii"), ("two course", "two semester", "continues")],
+    }[case_index]
+    matched = concept_count(answer, expected_concepts)
+    if matched == len(expected_concepts):
+        return "Accurate"
+    if matched:
+        return "Partially Accurate"
+    return "Inaccurate"
+
+
+def compact_retrieval(chunk: dict[str, Any]) -> dict[str, Any]:
+    """Keep the source, position, and score needed to reproduce evaluation evidence."""
+    return {
+        "source": chunk["source"],
+        "chunk_index": int(chunk["chunk_index"]),
+        "distance": round(float(chunk["distance"]), 4),
+    }
+
+
+def run_evaluation() -> list[dict[str, Any]]:
+    """Run every planned question through retrieval, grounded generation, and judgment."""
+    results: list[dict[str, Any]] = []
+    for index, case in enumerate(EVALUATION_CASES, start=1):
         try:
-            result = answer_question(item["question"], top_k=4)
-            print("System response:")
-            print(result["answer"])
-            print("Sources:")
-            for source in result["sources"]:
-                print(f"- {source}")
-            print("Retrieved chunks:")
-            for chunk in result["retrieved_chunks"]:
-                print(f"- source={chunk['source']} | chunk_index={chunk['chunk_index']} | distance={chunk['distance']:.4f}")
-                print(chunk["text"])
-                print("--")
-        except ValueError as exc:
-            print(f"Skipped because runtime configuration is incomplete: {exc}")
+            response = answer_question(case["question"], top_k=4)
+            retrieved = [compact_retrieval(chunk) for chunk in response["retrieved_chunks"]]
+            answer = str(response["answer"])
+            result: dict[str, Any] = {
+                "number": index,
+                "question": case["question"],
+                "expected_answer": case["expected_answer"],
+                "actual_response": answer,
+                "sources": list(response["sources"]),
+                "top_retrieval_result": retrieved[0] if retrieved else None,
+                "top_retrieval_distance": retrieved[0]["distance"] if retrieved else None,
+                "retrieval_top_k": retrieved,
+                "judgment": judge_answer(index, answer),
+            }
+        except (ValueError, RuntimeError) as exc:
+            result = {
+                "number": index,
+                "question": case["question"],
+                "expected_answer": case["expected_answer"],
+                "actual_response": f"REQUEST FAILED: {exc}",
+                "sources": [],
+                "top_retrieval_result": None,
+                "top_retrieval_distance": None,
+                "retrieval_top_k": [],
+                "judgment": "Inaccurate",
+            }
+        results.append(result)
+    return results
+
+
+def print_results(results: list[dict[str, Any]]) -> None:
+    """Print a readable report while preserving the same data in JSON."""
+    for result in results:
+        print(f"\nQUESTION {result['number']}")
+        print(f"Question: {result['question']}")
+        print(f"Expected: {result['expected_answer']}")
+        print(f"Actual: {result['actual_response']}")
+        print(f"Sources: {', '.join(result['sources']) or '(none)'}")
+        print(f"Top retrieval result: {result['top_retrieval_result']}")
+        print(f"Top distance: {result['top_retrieval_distance']}")
+        print("Top-k retrieval:")
+        for chunk in result["retrieval_top_k"]:
+            print(f"- {chunk['source']} | chunk {chunk['chunk_index']} | distance {chunk['distance']:.4f}")
+        print(f"Judgment: {result['judgment']}")
+
+
+def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description="Evaluate the five questions defined in planning.md.")
+    parser.add_argument(
+        "--output",
+        default="evaluation_results.json",
+        help="Path for the JSON report generated from this runtime evaluation.",
+    )
+    args = parser.parse_args()
+
+    results = run_evaluation()
+    print_results(results)
+    output_path = Path(args.output)
+    output_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    print(f"\nSaved runtime evaluation results to {output_path}.")
 
 
 if __name__ == "__main__":
-    run_evaluation()
+    main()
