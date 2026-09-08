@@ -206,7 +206,7 @@ The current evaluation question, “What topics are listed for MEEG-304 Thermody
 
 The grounded generation path is implemented in [query.py](query.py) with the Groq Python SDK. The runtime model is `openai/gpt-oss-20b`; the originally planned Llama model was unavailable to the configured Groq account. The system prompt permits only claims explicitly supported by the four retrieved chunks, forbids outside knowledge and inference, and requires this exact refusal when the context is insufficient: `I don't have enough information in the provided documents to answer that.`
 
-Retrieved context is labeled with its source filename, chunk index, file type, and topic. The returned `sources` list is deduplicated programmatically from ChromaDB metadata, so attribution does not depend on source names produced by the model.
+Retrieved context is labeled with its source filename, chunk index, file type, and topic. The returned `sources` list is selected programmatically: a source is included only when its retrieved chunk shares at least three meaningful terms with the generated answer. The exact insufficient-information refusal always returns an empty source list.
 
 ## Example Responses
 
@@ -216,23 +216,23 @@ Retrieved context is labeled with its source filename, chunk index, file type, a
 
 **Answer:** The course that explicitly teaches programming and software such as MATLAB is **MEEG‑207 Introduction to Engineering Computations**.
 
-**Sources:** `engineering_computations.txt`, `professor_recommendations.txt`, `vibrations.txt`
+**Sources:** `engineering_computations.txt`
 
 ### Supported question: Heat Transfer
 
-**Query:** What three modes of heat transfer are covered in MEEG-403 Heat Transfer?
+**Query:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
 
-**Answer:** The course covers the three major modes of heat transfer: conduction, convection, and radiation.
+**Answer:** Conduction, convection, and radiation.
 
-**Sources:** `heat_transfer.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
+**Sources:** `heat_transfer.txt`
 
 ### Out-of-scope question
 
-**Query:** What are the best restaurants near Howard University?
+**Query:** What are the best restaurants near the engineering building?
 
 **Answer:** I don't have enough information in the provided documents to answer that.
 
-**Sources:** `Mechanical Engineering Undergraduate Handbook.pdf`
+**Sources:** *(none — insufficient-information refusal)*
 
 ## Query Interface
 
@@ -248,11 +248,11 @@ The validated local launch URL was `http://127.0.0.1:7861`.
 
 **Sample interaction transcript**
 
-> **User:** What three modes of heat transfer are covered in MEEG-403 Heat Transfer?
+> **User:** What three major modes of heat transfer should a student expect to study in Heat Transfer?
 >
-> **System:** The course covers the three major modes of heat transfer: conduction, convection, and radiation.
+> **System:** Conduction, convection, and radiation.
 >
-> **Sources:** `heat_transfer.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
+> **Sources:** `heat_transfer.txt`
 
 ## Evaluation Report
 

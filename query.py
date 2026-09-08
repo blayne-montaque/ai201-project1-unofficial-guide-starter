@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from typing import Any
 
@@ -17,6 +18,13 @@ DEFAULT_TOP_K = 4
 # this available instruction model is used for the validated runtime path.
 GROQ_MODEL = "openai/gpt-oss-20b"
 INSUFFICIENT_INFORMATION_RESPONSE = "I don't have enough information in the provided documents to answer that."
+TOKEN_PATTERN = re.compile(r"[a-zA-Z]+|\d+")
+ATTRIBUTION_STOP_WORDS = {
+    "about", "answer", "are", "based", "by", "course", "does", "explicitly",
+    "for", "from", "have", "information", "introduction", "is", "it", "major",
+    "modes", "of", "on", "provided", "question", "such", "that", "the", "this",
+    "three", "to", "using", "what", "which", "with", "would", "you",
+}
 SYSTEM_INSTRUCTION = f"""You are answering a question using only the retrieved document context provided below.
 
 Rules:
@@ -27,7 +35,8 @@ Rules:
 4. Do not invent facts.
 5. Do not infer course requirements, professor behavior, dates, prerequisites, opinions, or policies unless they are supported by the provided context.
 6. Keep the answer concise and directly tied to the question.
-7. Do not add a source list to the answer; the application provides sources separately from retrieval metadata."""
+7. If you give the exact insufficient-information refusal, do not include source names.
+8. Do not add a source list to the answer; the application provides source attribution separately."""
 
 
 def get_api_key() -> str:
@@ -38,13 +47,30 @@ def get_api_key() -> str:
     return api_key
 
 
-def unique_sources(retrieval_results: list[dict[str, Any]]) -> list[str]:
-    """Derive a stable, deduplicated source list from retrieval metadata."""
-    return list(dict.fromkeys(str(result["source"]) for result in retrieval_results))
+def meaningful_tokens(text: str) -> set[str]:
+    """Return stable answer/content terms suitable for conservative attribution."""
+    return {
+        token.lower()
+        for token in TOKEN_PATTERN.findall(text)
+        if token.lower() not in ATTRIBUTION_STOP_WORDS and (token.isdigit() or len(token) >= 4)
+    }
+
+
+def supporting_sources(answer: str, retrieval_results: list[dict[str, Any]]) -> list[str]:
+    """Return only sources whose retrieved text substantively overlaps the answer."""
+    answer_tokens = meaningful_tokens(answer)
+    sources: list[str] = []
+    for result in retrieval_results:
+        shared_tokens = answer_tokens & meaningful_tokens(str(result["text"]))
+        if len(shared_tokens) >= 3:
+            source = str(result["source"])
+            if source not in sources:
+                sources.append(source)
+    return sources
 
 
 def build_prompt(question: str, retrieval_results: list[dict[str, Any]]) -> list[dict[str, str]]:
-    """Build a strict grounding prompt that includes source identifiers for each chunk."""
+    """Build a strict grounding prompt from retrieved document chunks."""
     context_blocks = []
     for result in retrieval_results:
         context_blocks.append(
@@ -76,7 +102,6 @@ def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
         raise ValueError("Please enter a question first.")
 
     retrieval_results = retrieve(question.strip(), top_k=top_k)
-    sources = unique_sources(retrieval_results)
     if not retrieval_results:
         return {
             "answer": INSUFFICIENT_INFORMATION_RESPONSE,
@@ -86,12 +111,14 @@ def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
 
     client = Groq(api_key=get_api_key())
     try:
+        prompt = build_prompt(question.strip(), retrieval_results)
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
-            messages=build_prompt(question.strip(), retrieval_results),
+            messages=prompt,
             temperature=0.0,
             max_tokens=300,
         )
+        raw_answer = (completion.choices[0].message.content or "").strip()
     except Exception as exc:
         status_code = getattr(exc, "status_code", None)
         error_label = exc.__class__.__name__
@@ -100,9 +127,15 @@ def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
             f"The generation request failed ({error_label}{status_detail}). Please try again."
         ) from exc
 
-    answer = (completion.choices[0].message.content or "").strip()
-    if not answer:
+    if not raw_answer:
         raise RuntimeError("The generation service returned an empty response. Please try again.")
+
+    if raw_answer == INSUFFICIENT_INFORMATION_RESPONSE:
+        answer = raw_answer
+        sources: list[str] = []
+    else:
+        answer = raw_answer
+        sources = supporting_sources(answer, retrieval_results)
 
     return {
         "answer": answer,
