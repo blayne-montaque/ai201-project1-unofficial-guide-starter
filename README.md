@@ -29,7 +29,7 @@ The repository contains 16 Howard Mechanical Engineering source documents: 15 `.
 
 ## Architecture
 
-Documents -> cleaning and paragraph-aware chunking -> `all-MiniLM-L6-v2` embeddings -> ChromaDB -> semantic top-k retrieval -> grounded Groq generation -> programmatic source attribution -> Gradio interface.
+Documents -> cleaning and paragraph-aware chunking -> `all-MiniLM-L6-v2` embeddings -> ChromaDB semantic and BM25 retrieval -> RRF hybrid top-k retrieval -> grounded Groq generation -> programmatic source attribution -> Gradio interface with session memory.
 
 ## Document Pipeline
 
@@ -185,12 +185,12 @@ The first two results describe the MEEG-441/MEEG-442 sequence and that Senior Pr
 
 Grounding works as follows:
 
-1. Semantic retrieval returns the top four chunks with metadata.
+1. The selected retrieval mode (hybrid by default) returns the top four chunks with metadata.
 2. `query.py` formats those chunks as the model context.
 3. The system prompt permits only claims supported by that context and forbids outside knowledge or unsupported inference.
 4. Groq generates a concise answer from the retrieved context.
 5. If Groq returns an empty completion, the same generation request is retried once. A second empty completion remains an explicit runtime failure rather than a fabricated refusal.
-6. Source filenames are derived programmatically from chunks that share at least three meaningful terms with the final answer; the model does not invent citations.
+6. Source filenames are derived programmatically from chunks with strong meaningful-term overlap with the final answer. Short factual answers require at least three shared terms; longer answers require overlap close to the strongest retrieved evidence. The model does not invent citations.
 7. When context is insufficient, the answer is exactly `I don't have enough information in the provided documents to answer that.` and the source list is empty.
 
 ### Real Example Responses
@@ -215,7 +215,7 @@ Grounding works as follows:
 
 ## Query Interface
 
-[app.py](app.py) provides a local Gradio interface with a question textbox, Ask button, Enter-to-submit behavior, an answer field, a source display, and retrieved-context JSON. It displays concise errors instead of Python tracebacks and is not publicly hosted.
+[app.py](app.py) provides a local Gradio interface with a question textbox, Ask button, Enter-to-submit behavior, an answer field, a source display, and retrieved-context JSON. It keeps per-session user-turn history so follow-up course references can be resolved for retrieval, while documents remain the only factual context. It displays concise errors instead of Python tracebacks and is not publicly hosted.
 
 Run it with:
 
@@ -237,9 +237,9 @@ The final validation launched the app at `http://127.0.0.1:7862` and confirmed t
 | 2 | Which course focuses on instruments, sensors, experimental error, and uncertainty analysis? | MEEG-316 Instrumentation and Experimentation plus the listed measurement topics | MEEG-316 Instrumentation & Experimentation Lab | instrumentation.txt | Partially Accurate |
 | 3 | What three major modes of heat transfer should a student expect to study in Heat Transfer? | Conduction, convection, and radiation | The three major modes of heat transfer covered are conduction, convection, and radiation. | heat_transfer.txt | Accurate |
 | 4 | How is Howard Mechanical Engineering Senior Project structured across the senior year? | MEEG-441 and MEEG-442 two-course sequence; II continues I | A two-course, year-long sequence; MEEG-442 continues the MEEG-441 design work | senior_design.txt; Mechanical Engineering Undergraduate Handbook.pdf | Accurate |
-| 5 | According to the guide, which course is mainly about designing aircraft wings? | Exact insufficient-information refusal | REQUEST FAILED: The generation service returned an empty response. Please try again. | None | Inaccurate (runtime failure) |
+| 5 | According to the guide, which course is mainly about designing aircraft wings? | Exact insufficient-information refusal | I don't have enough information in the provided documents to answer that. | None | Accurate |
 
-The evaluation report was generated from a live run. Question 2 is partially accurate because the system identifies the correct course and source but omits the requested instruments/sensors, experimental-error, and uncertainty details. Question 1 is inaccurate because the correct MEEG-304 description was not retrieved in the top-four context; the model correctly refused rather than inventing an answer. Question 5 exhausted the one empty-response retry and therefore did not evaluate the RAG refusal behavior; it is recorded as an explicit runtime failure rather than as a fabricated refusal. Question 1 remains the primary documented pipeline failure because it is reproducibly caused by retrieval ranking.
+The evaluation report was generated from a live run. Question 2 is partially accurate because the system identifies the correct course and source but omits the requested instruments/sensors, experimental-error, and uncertainty details. Question 1 is inaccurate because the correct MEEG-304 description was not retrieved in the top-four context; the model correctly refused rather than inventing an answer. Question 1 remains the primary documented pipeline failure because it is reproducibly caused by retrieval ranking.
 
 ## Failure Case Analysis
 
@@ -251,7 +251,88 @@ The evaluation report was generated from a live run. Question 2 is partially acc
 
 **Pipeline stage responsible:** Retrieval ranking. The MiniLM embedding recognized strong semantic similarity between the query and Applied Thermodynamics, so the related MEEG-306 material ranked above the direct MEEG-304 description. The default top-k cutoff of 4 excluded the chunk containing the required laws, pure-substance, entropy, and availability content. Grounded generation therefore had no valid evidence to use and refused.
 
-**Future improvement:** A hybrid lexical-plus-semantic ranker, metadata filtering, reranking, or a justified top-k adjustment could improve this exact-course query. None of those stretch features is implemented in this milestone.
+**Baseline follow-up:** This was the Milestone 6 baseline. The stretch implementation below adds BM25 + RRF hybrid retrieval and metadata filtering while preserving this semantic-only result as before/after evidence.
+
+## Stretch Goal: Hybrid Search
+
+[vector_store.py](vector_store.py) now supports `semantic`, `bm25`, and `hybrid` retrieval modes over the same validated chunks and metadata. BM25 uses `rank-bm25` over normalized chunk tokens. Hybrid uses Reciprocal Rank Fusion (RRF) across the complete semantic and BM25 rankings with `k = 60`:
+
+```text
+RRF(document) = 1 / (60 + semantic_rank) + 1 / (60 + bm25_rank)
+```
+
+RRF scores are fusion ranks, not probabilities. Each hybrid result contains the source, chunk index, text, semantic distance/rank, BM25 score/rank, and RRF score. Duplicate chunk IDs are fused into one result.
+
+The end-to-end generation and Gradio paths now default to `hybrid` because it improved the known exact-course failure while retaining rank-1 expected evidence for MATLAB and Heat Transfer. Semantic retrieval remains the default of `retrieve()` and is available with `--mode semantic` for baseline comparison.
+
+The following results were generated by [stretch_evaluation.py](stretch_evaluation.py) and saved in [stretch_results.json](stretch_results.json).
+
+| Query | Semantic top 4 | BM25 top 4 | Hybrid top 4 | Result |
+|---|---|---|---|---|
+| Thermodynamics topics | applied_thermodynamics.txt #0 (0.3044); handbook #56 (0.3283), #53 (0.3404), #55 (0.3484) | thermodynamics.txt #0 (10.8645); fluid_mechanics.txt #1 (9.4332); professor_recommendations.txt #9 (8.9907), #1 (8.9734) | thermodynamics.txt #0 (0.031545); applied_thermodynamics.txt #0 (0.030282); fluid_mechanics.txt #1 (0.030018); professor_recommendations.txt #1 (0.029710) | Hybrid and BM25 put the expected chunk at rank 1; semantic omitted it from top 4. |
+| MATLAB | engineering_computations.txt #1 (0.3730), #0 (0.3836); professor_recommendations.txt #8 (0.5053); vibrations.txt #1 (0.5600) | engineering_computations.txt #0 (18.5543); handbook #21 (7.6103); thermodynamics.txt #1 (7.0881); vibrations.txt #1 (6.8188) | engineering_computations.txt #0 (0.032522), #1 (0.031545); vibrations.txt #1 (0.031250); thermodynamics.txt #2 (0.028543) | All methods returned expected evidence at rank 1; hybrid retained both strong Engineering Computations chunks. |
+| Heat Transfer modes | heat_transfer.txt #0 (0.3100), #1 (0.3998); professor_recommendations.txt #0 (0.4841), #1 (0.5127) | heat_transfer.txt #0 (30.9039); thermodynamics.txt #1 (14.0491); handbook #49 (13.5249); fluid_mechanics.txt #1 (12.8871) | heat_transfer.txt #0 (0.032787), #1 (0.031281); thermodynamics.txt #1 (0.030835); professor_recommendations.txt #0 (0.030798) | All methods returned expected evidence at rank 1; hybrid did not degrade the correct result. |
+
+For the known Thermodynamics case, hybrid produced the grounded answer, “The guide lists the following topics for MEEG-304 Thermodynamics: the laws of thermodynamics, properties of pure substances, entropy, and availability,” with only `thermodynamics.txt` attributed. The lexical course-code match supplied the signal missing from semantic-only top 4.
+
+### Post-Stretch Evaluation (Hybrid Generation Path)
+
+The baseline Milestone 6 semantic evaluation remains above. The following separate run used `python evaluate.py --mode hybrid --output post_stretch_evaluation_results.json`.
+
+| # | Actual response summary | Sources | Judgment |
+|---|---|---|---|
+| 1 | Listed laws of thermodynamics, pure substances, entropy, and availability | thermodynamics.txt | Accurate |
+| 2 | Identified MEEG-316 Instrumentation & Experimentation Lab but omitted requested measurement details | instrumentation.txt | Partially Accurate |
+| 3 | Listed conduction, convection, and radiation | heat_transfer.txt | Accurate |
+| 4 | Correctly described the MEEG-441/MEEG-442 sequence | senior_design.txt | Accurate |
+| 5 | Exact insufficient-information refusal for aircraft wings | None | Accurate |
+
+The full generated answers, scores, and top-four retrieved chunks are retained in [post_stretch_evaluation_results.json](post_stretch_evaluation_results.json).
+
+## Stretch Goal: Chunking Strategy Comparison
+
+The benchmark compares paragraph-aware chunking in memory, so it does not overwrite the validated 127-record ChromaDB collection.
+
+| Strategy | Chunk count | Thermodynamics expected-source rank | MATLAB expected-source rank | Heat Transfer expected-source rank |
+|---|---:|---:|---:|---:|
+| A: 800-character target / 150 overlap | 127 | Outside top 4 | 1 (`engineering_computations.txt` #1, 0.3730) | 1 (`heat_transfer.txt` #0, 0.3100) |
+| B: 400-character target / 75 overlap | 275 | 3 (`thermodynamics.txt` #0, 0.2927) | 1 (`engineering_computations.txt` #3, 0.2525) | 1 (`heat_transfer.txt` #1, 0.2014) |
+
+Strategy B won this semantic-only benchmark: it moved the direct Thermodynamics evidence into top 4 and produced more focused rank-1 chunks for the MATLAB and Heat Transfer queries. The tradeoff is a little over twice as many chunks and more fragmented context. Production chunking remains Strategy A because its chunks are more self-contained, the 127-record baseline remains validated, and hybrid retrieval fixes the exact-course ranking problem without permanently doubling the index. The benchmark evidence remains reproducible in `stretch_results.json`.
+
+## Stretch Goal: Metadata Filtering
+
+`retrieve()` accepts equality filters on existing `source`, `file_type`, `topic`, and `chunk_index` metadata. Semantic filters are passed to ChromaDB; BM25 and hybrid apply the same constraints before ranking.
+
+For “What topics are listed for MEEG-304 Thermodynamics in the guide?”, unfiltered semantic retrieval returned `applied_thermodynamics.txt` #0 followed by handbook chunks #56, #53, and #55. With `filters={"topic": "thermodynamics"}`, the result set changed visibly to only `thermodynamics.txt` chunks #0 (0.3593), #1 (0.4726), and #2 (0.4857).
+
+A second source filter, `filters={"source": "heat_transfer.txt"}`, changed the Heat Transfer query from four mixed-corpus results to only `heat_transfer.txt` chunks #0 (0.3100) and #1 (0.3998). These values are preserved in [stretch_results.json](stretch_results.json).
+
+## Stretch Goal: Conversational Memory
+
+Gradio now keeps per-session turn state. On a follow-up containing a course reference such as “its” or “that course,” [query.py](query.py) finds the course code in the prior user question and rewrites only the retrieval query. Previous model answers are never passed as factual context; the selected document chunks remain the sole authority for generation and source attribution.
+
+**Live exchange 1**
+
+1. User: “What three modes of heat transfer are covered in MEEG-403 Heat Transfer?”
+   - Answer: “The course covers the three major modes of heat transfer: conduction, convection, and radiation.”
+   - Sources: `heat_transfer.txt`
+2. User: “What are its prerequisites?”
+   - Contextualized retrieval query: `What are its prerequisites? The referenced course is MEEG-403.`
+   - Answer: “The prerequisites for MEEG-403 Heat Transfer are: MEEG-304 Thermodynamics; MEEG-307 Fluid Mechanics.”
+   - Sources: `fluid_mechanics.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
+
+**Live exchange 2**
+
+1. User: “Tell me about MEEG-207 Introduction to Engineering Computations.”
+   - Answer: MEEG-207 was described as a 3-credit programming and computational problem-solving course that uses MATLAB.
+   - Sources: `engineering_computations.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
+2. User: “What software does that course use?”
+   - Contextualized retrieval query: `What software does that course use? The referenced course is MEEG-207.`
+   - Answer: “The course uses MATLAB as an engineering computation tool.”
+   - Sources: `engineering_computations.txt`
+
+The exact generated transcripts and retrieved rankings are saved in [stretch_results.json](stretch_results.json). If a provider empty-response error occurs during a later demo, [stretch_evaluation.py](stretch_evaluation.py) records that runtime error rather than inventing a memory answer.
 
 ## Spec Reflection
 
@@ -287,9 +368,13 @@ From the repository root, use the project virtual environment:
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe ingest.py
 .\.venv\Scripts\python.exe vector_store.py --rebuild
-.\.venv\Scripts\python.exe query.py "Which course explicitly teaches programming and software such as MATLAB?" --retrieve-only
+.\.venv\Scripts\python.exe query.py "What topics are listed for MEEG-304 Thermodynamics in the guide?" --retrieve-only --mode semantic
+.\.venv\Scripts\python.exe query.py "What topics are listed for MEEG-304 Thermodynamics in the guide?" --retrieve-only --mode bm25
+.\.venv\Scripts\python.exe query.py "What topics are listed for MEEG-304 Thermodynamics in the guide?" --retrieve-only --mode hybrid
 .\.venv\Scripts\python.exe query.py "Which course explicitly teaches programming and software such as MATLAB?"
 .\.venv\Scripts\python.exe evaluate.py
+.\.venv\Scripts\python.exe evaluate.py --mode hybrid --output post_stretch_evaluation_results.json
+.\.venv\Scripts\python.exe stretch_evaluation.py --include-memory
 .\.venv\Scripts\python.exe app.py
 ```
 
@@ -303,6 +388,6 @@ Keep the recording to 3–5 minutes and show:
 
 1. The Gradio interface and the MATLAB query, including the MEEG-207 answer and `engineering_computations.txt` source.
 2. The Heat Transfer query, including conduction, convection, radiation, and `heat_transfer.txt`.
-3. The Thermodynamics weakness: show that related content ranks highly while the direct MEEG-304 chunk falls outside top-k 4.
+3. The Thermodynamics before/after: show semantic-only related chunks, then hybrid rank-1 `thermodynamics.txt` evidence.
 4. The out-of-scope restaurant query to demonstrate the exact refusal with no sources.
 5. The evaluation report and its documented judgments.

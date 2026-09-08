@@ -9,22 +9,26 @@ from typing import Any
 from dotenv import load_dotenv
 from groq import Groq
 
-from vector_store import retrieve
+from vector_store import RETRIEVAL_MODES, retrieve
 
 load_dotenv()
 
 DEFAULT_TOP_K = 4
+DEFAULT_RETRIEVAL_MODE = "hybrid"
 # The originally planned Llama model returned HTTP 404 for this Groq account;
 # this available instruction model is used for the validated runtime path.
 GROQ_MODEL = "openai/gpt-oss-20b"
 INSUFFICIENT_INFORMATION_RESPONSE = "I don't have enough information in the provided documents to answer that."
 TOKEN_PATTERN = re.compile(r"[a-zA-Z]+|\d+")
+COURSE_CODE_PATTERN = re.compile(r"\b(?:MEEG|CIEG)[-\s]?\d{3}\b", re.IGNORECASE)
+FOLLOW_UP_PATTERN = re.compile(r"\b(?:its|that course|this course|that class|this class|the course)\b", re.IGNORECASE)
 ATTRIBUTION_STOP_WORDS = {
     "about", "answer", "are", "based", "by", "course", "does", "explicitly",
     "for", "from", "have", "information", "introduction", "is", "it", "major",
     "modes", "of", "on", "provided", "question", "such", "that", "the", "this",
     "three", "to", "using", "what", "which", "with", "would", "you",
 }
+MIN_SUPPORTING_TERM_OVERLAP = 3
 SYSTEM_INSTRUCTION = f"""You are answering a question using only the retrieved document context provided below.
 
 Rules:
@@ -59,14 +63,38 @@ def meaningful_tokens(text: str) -> set[str]:
 def supporting_sources(answer: str, retrieval_results: list[dict[str, Any]]) -> list[str]:
     """Return only sources whose retrieved text substantively overlaps the answer."""
     answer_tokens = meaningful_tokens(answer)
+    overlaps = [
+        (result, answer_tokens & meaningful_tokens(str(result["text"])))
+        for result in retrieval_results
+    ]
+    strongest_overlap = max((len(shared_tokens) for _result, shared_tokens in overlaps), default=0)
+    required_overlap = (
+        MIN_SUPPORTING_TERM_OVERLAP
+        if strongest_overlap <= 4
+        else max(MIN_SUPPORTING_TERM_OVERLAP + 1, strongest_overlap - 2)
+    )
     sources: list[str] = []
-    for result in retrieval_results:
-        shared_tokens = answer_tokens & meaningful_tokens(str(result["text"]))
-        if len(shared_tokens) >= 3:
+    for result, shared_tokens in overlaps:
+        if len(shared_tokens) >= required_overlap:
             source = str(result["source"])
             if source not in sources:
                 sources.append(source)
     return sources
+
+
+def contextualize_follow_up(question: str, history: list[dict[str, Any]] | None = None) -> str:
+    """Resolve course references from prior user turns without treating history as evidence."""
+    cleaned_question = question.strip()
+    if not history or not FOLLOW_UP_PATTERN.search(cleaned_question):
+        return cleaned_question
+
+    for turn in reversed(history):
+        prior_question = str(turn.get("question", ""))
+        course_match = COURSE_CODE_PATTERN.search(prior_question)
+        if course_match:
+            course_code = course_match.group(0).upper().replace(" ", "-")
+            return f"{cleaned_question} The referenced course is {course_code}."
+    return cleaned_question
 
 
 def build_prompt(question: str, retrieval_results: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -96,22 +124,30 @@ def build_prompt(question: str, retrieval_results: list[dict[str, Any]]) -> list
     ]
 
 
-def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+def ask(
+    question: str,
+    top_k: int = DEFAULT_TOP_K,
+    mode: str = DEFAULT_RETRIEVAL_MODE,
+    filters: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Retrieve evidence, call Groq, and return a grounded answer with code-derived sources."""
     if not question or not question.strip():
         raise ValueError("Please enter a question first.")
 
-    retrieval_results = retrieve(question.strip(), top_k=top_k)
+    retrieval_query = contextualize_follow_up(question, history)
+    retrieval_results = retrieve(retrieval_query, top_k=top_k, mode=mode, filters=filters)
     if not retrieval_results:
         return {
             "answer": INSUFFICIENT_INFORMATION_RESPONSE,
             "sources": [],
             "retrieved_chunks": [],
+            "retrieval_query": retrieval_query,
         }
 
     client = Groq(api_key=get_api_key())
     try:
-        prompt = build_prompt(question.strip(), retrieval_results)
+        prompt = build_prompt(retrieval_query, retrieval_results)
         raw_answer = ""
         for _attempt in range(2):
             completion = client.chat.completions.create(
@@ -145,12 +181,32 @@ def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
         "answer": answer,
         "sources": sources,
         "retrieved_chunks": retrieval_results,
+        "retrieval_query": retrieval_query,
     }
 
 
-def answer_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+def answer_question(
+    question: str,
+    top_k: int = DEFAULT_TOP_K,
+    mode: str = DEFAULT_RETRIEVAL_MODE,
+    filters: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Backward-compatible name used by the Gradio interface."""
-    return ask(question, top_k=top_k)
+    return ask(question, top_k=top_k, mode=mode, filters=filters, history=history)
+
+
+def parse_filters(raw_filters: list[str]) -> dict[str, str]:
+    """Parse repeatable KEY=VALUE CLI filters into retrieval metadata constraints."""
+    filters: dict[str, str] = {}
+    for raw_filter in raw_filters:
+        if "=" not in raw_filter:
+            raise ValueError("Filters must use KEY=VALUE format.")
+        key, value = raw_filter.split("=", maxsplit=1)
+        if not key.strip() or not value.strip():
+            raise ValueError("Filters must use non-empty KEY=VALUE pairs.")
+        filters[key.strip()] = value.strip()
+    return filters
 
 
 def print_retrieval_results(question: str, retrieval_results: list[dict[str, Any]]) -> None:
@@ -164,7 +220,15 @@ def print_retrieval_results(question: str, retrieval_results: list[dict[str, Any
         print(f"Chunk Index: {chunk['chunk_index']}")
         print(f"File Type: {chunk['file_type']}")
         print(f"Topic: {chunk['topic']}")
-        print(f"Distance: {chunk['distance']:.4f}\n")
+        distance = chunk["distance"]
+        print(f"Distance: {distance:.4f}" if distance is not None else "Distance: n/a")
+        bm25_score = chunk.get("bm25_score")
+        rrf_score = chunk.get("rrf_score")
+        if bm25_score is not None:
+            print(f"BM25 Score: {bm25_score:.4f}")
+        if rrf_score is not None:
+            print(f"RRF Score: {rrf_score:.6f}")
+        print()
         print(chunk["text"])
         print("-" * 50)
 
@@ -182,7 +246,9 @@ def print_answer_result(question: str, result: dict[str, Any]) -> None:
     for rank, chunk in enumerate(result["retrieved_chunks"], start=1):
         print(
             f"{rank}. source={chunk['source']} | chunk_index={chunk['chunk_index']} | "
-            f"distance={chunk['distance']:.4f}"
+            f"distance={chunk['distance'] if chunk['distance'] is not None else 'n/a'} | "
+            f"bm25_score={chunk['bm25_score'] if chunk['bm25_score'] is not None else 'n/a'} | "
+            f"rrf_score={chunk['rrf_score'] if chunk['rrf_score'] is not None else 'n/a'}"
         )
 
 
@@ -193,16 +259,19 @@ def main() -> None:
     parser.add_argument("question", nargs="?", help="Question to ask the ChromaDB retrieval pipeline.")
     parser.add_argument("--retrieve-only", action="store_true", help="Only retrieve the top chunks and do not call Groq.")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="How many chunks to retrieve.")
+    parser.add_argument("--mode", choices=sorted(RETRIEVAL_MODES), default=DEFAULT_RETRIEVAL_MODE, help="Retrieval mode.")
+    parser.add_argument("--filter", action="append", default=[], metavar="KEY=VALUE", help="Metadata equality filter; repeatable.")
     args = parser.parse_args()
 
     if not args.question:
         parser.error("A question is required.")
 
     try:
+        filters = parse_filters(args.filter)
         if args.retrieve_only:
-            print_retrieval_results(args.question, retrieve(args.question, top_k=args.top_k))
+            print_retrieval_results(args.question, retrieve(args.question, top_k=args.top_k, mode=args.mode, filters=filters))
             return
-        print_answer_result(args.question, ask(args.question, top_k=args.top_k))
+        print_answer_result(args.question, ask(args.question, top_k=args.top_k, mode=args.mode, filters=filters))
     except (ValueError, RuntimeError) as exc:
         print(f"REQUEST FAILED: {exc}")
 

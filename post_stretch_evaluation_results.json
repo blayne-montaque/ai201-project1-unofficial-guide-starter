@@ -1,0 +1,190 @@
+[
+  {
+    "number": 1,
+    "question": "What topics are listed for MEEG-304 Thermodynamics in the guide?",
+    "expected_answer": "The laws of thermodynamics, properties of pure substances, entropy, and availability.",
+    "actual_response": "The guide lists the following topics for MEEG\u2011304 Thermodynamics: the laws of thermodynamics, properties of pure substances, entropy, and availability.",
+    "sources": [
+      "thermodynamics.txt"
+    ],
+    "top_retrieval_result": {
+      "source": "thermodynamics.txt",
+      "chunk_index": 0,
+      "distance": 0.3593
+    },
+    "top_retrieval_distance": 0.3593,
+    "retrieval_top_k": [
+      {
+        "source": "thermodynamics.txt",
+        "chunk_index": 0,
+        "distance": 0.3593
+      },
+      {
+        "source": "applied_thermodynamics.txt",
+        "chunk_index": 0,
+        "distance": 0.3044
+      },
+      {
+        "source": "fluid_mechanics.txt",
+        "chunk_index": 1,
+        "distance": 0.418
+      },
+      {
+        "source": "professor_recommendations.txt",
+        "chunk_index": 1,
+        "distance": 0.4112
+      }
+    ],
+    "judgment": "Accurate"
+  },
+  {
+    "number": 2,
+    "question": "Which course in the document collection focuses on instruments, sensors, experimental error, and uncertainty analysis?",
+    "expected_answer": "MEEG-316 Instrumentation and Experimentation, including instruments or sensors, experimental error, and uncertainty analysis.",
+    "actual_response": "The course is **MEEG\u2011316 Instrumentation & Experimentation Lab**.",
+    "sources": [
+      "instrumentation.txt"
+    ],
+    "top_retrieval_result": {
+      "source": "instrumentation.txt",
+      "chunk_index": 0,
+      "distance": 0.3548
+    },
+    "top_retrieval_distance": 0.3548,
+    "retrieval_top_k": [
+      {
+        "source": "instrumentation.txt",
+        "chunk_index": 0,
+        "distance": 0.3548
+      },
+      {
+        "source": "instrumentation.txt",
+        "chunk_index": 1,
+        "distance": 0.4252
+      },
+      {
+        "source": "dynamics.txt",
+        "chunk_index": 1,
+        "distance": 0.5661
+      },
+      {
+        "source": "solid_mechanics.txt",
+        "chunk_index": 1,
+        "distance": 0.5515
+      }
+    ],
+    "judgment": "Partially Accurate"
+  },
+  {
+    "number": 3,
+    "question": "What three major modes of heat transfer should a student expect to study in Heat Transfer?",
+    "expected_answer": "Conduction, convection, and radiation.",
+    "actual_response": "Conduction, convection, and radiation.",
+    "sources": [
+      "heat_transfer.txt"
+    ],
+    "top_retrieval_result": {
+      "source": "heat_transfer.txt",
+      "chunk_index": 0,
+      "distance": 0.31
+    },
+    "top_retrieval_distance": 0.31,
+    "retrieval_top_k": [
+      {
+        "source": "heat_transfer.txt",
+        "chunk_index": 0,
+        "distance": 0.31
+      },
+      {
+        "source": "heat_transfer.txt",
+        "chunk_index": 1,
+        "distance": 0.3998
+      },
+      {
+        "source": "thermodynamics.txt",
+        "chunk_index": 1,
+        "distance": 0.5273
+      },
+      {
+        "source": "professor_recommendations.txt",
+        "chunk_index": 0,
+        "distance": 0.4841
+      }
+    ],
+    "judgment": "Accurate"
+  },
+  {
+    "number": 4,
+    "question": "How is Howard Mechanical Engineering Senior Project structured across the senior year?",
+    "expected_answer": "MEEG-441 Senior Project I and MEEG-442 Senior Project II are a two-course sequence; Project II continues the team design study begun in Project I.",
+    "actual_response": "Howard Mechanical Engineering\u2019s senior project is a two\u2011course sequence.  \n- **MEEG\u2011441 Senior Project\u202fI** is taken in the first senior semester and is an independent team design study supervised by faculty.  \n- **MEEG\u2011442 Senior Project\u202fII** follows in the second senior semester, continuing the design work begun in MEEG\u2011441.  \n\nStudents progress from Project\u202fI to Project\u202fII while maintaining their team design effort, and a formal project report must be submitted for faculty review before graduation.",
+    "sources": [
+      "senior_design.txt"
+    ],
+    "top_retrieval_result": {
+      "source": "senior_design.txt",
+      "chunk_index": 1,
+      "distance": 0.3011
+    },
+    "top_retrieval_distance": 0.3011,
+    "retrieval_top_k": [
+      {
+        "source": "senior_design.txt",
+        "chunk_index": 1,
+        "distance": 0.3011
+      },
+      {
+        "source": "senior_design.txt",
+        "chunk_index": 0,
+        "distance": 0.3193
+      },
+      {
+        "source": "applied_thermodynamics.txt",
+        "chunk_index": 1,
+        "distance": 0.449
+      },
+      {
+        "source": "engineering_survival_guide.txt",
+        "chunk_index": 2,
+        "distance": 0.5052
+      }
+    ],
+    "judgment": "Accurate"
+  },
+  {
+    "number": 5,
+    "question": "According to the guide, which course is mainly about designing aircraft wings?",
+    "expected_answer": "The exact insufficient-information refusal, because the provided documents do not answer this question.",
+    "actual_response": "I don't have enough information in the provided documents to answer that.",
+    "sources": [],
+    "top_retrieval_result": {
+      "source": "Mechanical Engineering Undergraduate Handbook.pdf",
+      "chunk_index": 3,
+      "distance": 0.5552
+    },
+    "top_retrieval_distance": 0.5552,
+    "retrieval_top_k": [
+      {
+        "source": "Mechanical Engineering Undergraduate Handbook.pdf",
+        "chunk_index": 3,
+        "distance": 0.5552
+      },
+      {
+        "source": "professor_recommendations.txt",
+        "chunk_index": 18,
+        "distance": 0.5682
+      },
+      {
+        "source": "fluid_mechanics.txt",
+        "chunk_index": 2,
+        "distance": 0.604
+      },
+      {
+        "source": "thermodynamics.txt",
+        "chunk_index": 2,
+        "distance": 0.6089
+      }
+    ],
+    "judgment": "Accurate"
+  }
+]

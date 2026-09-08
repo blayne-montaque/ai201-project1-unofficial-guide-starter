@@ -73,12 +73,12 @@ def compact_retrieval(chunk: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def run_evaluation() -> list[dict[str, Any]]:
+def run_evaluation(mode: str = "semantic") -> list[dict[str, Any]]:
     """Run every planned question through retrieval, grounded generation, and judgment."""
     results: list[dict[str, Any]] = []
     for index, case in enumerate(EVALUATION_CASES, start=1):
         try:
-            response = answer_question(case["question"], top_k=4)
+            response = answer_question(case["question"], top_k=4, mode=mode)
             retrieved = [compact_retrieval(chunk) for chunk in response["retrieved_chunks"]]
             answer = str(response["answer"])
             result: dict[str, Any] = {
@@ -133,9 +133,15 @@ def main() -> None:
         default="evaluation_results.json",
         help="Path for the JSON report generated from this runtime evaluation.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["semantic", "bm25", "hybrid"],
+        default="semantic",
+        help="Retrieval mode; semantic preserves the Milestone 6 baseline.",
+    )
     args = parser.parse_args()
 
-    results = run_evaluation()
+    results = run_evaluation(mode=args.mode)
     print_results(results)
     output_path = Path(args.output)
     output_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
