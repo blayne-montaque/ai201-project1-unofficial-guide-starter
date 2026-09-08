@@ -204,113 +204,76 @@ The current evaluation question, “What topics are listed for MEEG-304 Thermody
 
 ## Grounded Generation
 
-The grounded generation path is implemented in [query.py](query.py). The system prompt is:
+The grounded generation path is implemented in [query.py](query.py) with the Groq Python SDK. The runtime model is `openai/gpt-oss-20b`; the originally planned Llama model was unavailable to the configured Groq account. The system prompt permits only claims explicitly supported by the four retrieved chunks, forbids outside knowledge and inference, and requires this exact refusal when the context is insufficient: `I don't have enough information in the provided documents to answer that.`
 
-You are answering questions using only the provided retrieved documents. Do not use outside knowledge. If the provided context does not contain enough information to answer the question, say that you do not have enough information. Do not invent facts. Cite the relevant source filenames in your response.
-
-Generation is intentionally grounded by passing only the retrieved chunks and their source names into the model. The pipeline also programmatically tracks source filenames and returns a JSON-style structure with the answer, sources, and retrieved chunks so the interface can display attribution clearly. Because the current documents are placeholder text, the model should not be expected to answer with real student claims until the corpus is replaced with authentic course material.
+Retrieved context is labeled with its source filename, chunk index, file type, and topic. The returned `sources` list is deduplicated programmatically from ChromaDB metadata, so attribution does not depend on source names produced by the model.
 
 ## Example Responses
 
-**Grounded response 1**
+### Supported question: Engineering Computations
 
-Query: What do students say about Thermodynamics?
+**Query:** Which course explicitly teaches programming and software such as MATLAB?
 
-Response: [Not run with a real Groq key yet; the current documents are placeholders, so there is no authentic student evidence to quote.]
+**Answer:** The course that explicitly teaches programming and software such as MATLAB is **MEEG‑207 Introduction to Engineering Computations**.
 
-Source attribution: [Not available until valid corpus content and a configured Groq API key are present.]
+**Sources:** `engineering_computations.txt`, `professor_recommendations.txt`, `vibrations.txt`
 
----
+### Supported question: Heat Transfer
 
-**Grounded response 2**
+**Query:** What three modes of heat transfer are covered in MEEG-403 Heat Transfer?
 
-Query: What should I expect from Fluid Mechanics?
+**Answer:** The course covers the three major modes of heat transfer: conduction, convection, and radiation.
 
-Response: [Not run with a real Groq key yet; the current documents are placeholders, so there is no authentic student evidence to quote.]
+**Sources:** `heat_transfer.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
 
-Source attribution: [Not available until valid corpus content and a configured Groq API key are present.]
+### Out-of-scope question
 
----
+**Query:** What are the best restaurants near Howard University?
 
-**Out-of-scope query**
+**Answer:** I don't have enough information in the provided documents to answer that.
 
-Query: What are the best campus food options near the engineering building?
-
-System response (refusal): [The project is intentionally scoped to Howard Mechanical Engineering course knowledge. A real answer should be refused unless the dataset includes relevant food-related material.] 
+**Sources:** `Mechanical Engineering Undergraduate Handbook.pdf`
 
 ## Query Interface
 
-The application in [app.py](app.py) presents a simple Gradio interface with a single question textbox, an Ask button, and output areas for the answer, sources, and retrieved context JSON. It is designed to be easy to demo locally without extra styling.
+The application in [app.py](app.py) uses Gradio. It provides a question textbox, an Ask button, Enter-to-submit behavior, and separate Answer, Sources, and Retrieved context outputs. It displays concise errors for empty input, missing configuration, retrieval problems, and Groq failures instead of tracebacks.
 
-**Input fields:** Question text box  
-**Output format:** Answer, sources list, retrieved context block
+Launch the interface with:
+
+```powershell
+.\.venv\Scripts\python.exe app.py
+```
+
+The validated local launch URL was `http://127.0.0.1:7861`.
 
 **Sample interaction transcript**
 
-> **User:** What do students say about Thermodynamics?
+> **User:** What three modes of heat transfer are covered in MEEG-403 Heat Transfer?
 >
-> **System:** This project currently runs on placeholder course documents. Once real student sources are added and a valid Groq API key is configured, the system will answer using only the retrieved context and cite source files.
+> **System:** The course covers the three major modes of heat transfer: conduction, convection, and radiation.
+>
+> **Sources:** `heat_transfer.txt`, `Mechanical Engineering Undergraduate Handbook.pdf`
 
 ## Evaluation Report
 
-These five evaluation questions are ready to run once the project has a valid corpus and Groq key. The expected answers remain placeholders because no authentic student-source corpus is present yet.
-
-| # | Question | Expected answer | System response (summarized) | Retrieval quality | Response accuracy |
-|---|----------|-----------------|------------------------------|-------------------|-------------------|
-| 1 | What do students say about Thermodynamics? | TBD after actual source material is added | [Not run with valid Groq key yet] | Partially relevant | TBD |
-| 2 | What should I expect from Fluid Mechanics? | TBD after actual source material is added | [Not run with valid Groq key yet] | Partially relevant | TBD |
-| 3 | Which classes involve MATLAB? | TBD after actual source material is added | [Not run with valid Groq key yet] | Partially relevant | TBD |
-| 4 | What is Senior Design like? | TBD after actual source material is added | [Not run with valid Groq key yet] | Partially relevant | TBD |
-| 5 | Which courses are especially math-heavy? | TBD after actual source material is added | [Not run with valid Groq key yet] | Partially relevant | TBD |
-
-**Retrieval quality:** Relevant / Partially relevant / Off-target  
-**Response accuracy:** Accurate / Partially accurate / Inaccurate
-
-## Failure Case Analysis
-
-**Question that failed:** Which classes involve MATLAB?
-
-**What the system returned:** The retrieval system surfaced the engineering_survival_guide placeholder and nearby course documents, but the real answer could not be verified because the corpus had no authentic student text yet.
-
-**Root cause (tied to a specific pipeline stage):** The failure is caused by the document corpus itself: the placeholder files are intentionally generic and do not contain real student-generated evidence. Retrieval still works technically, but it has no domain-grounded content to justify a full answer.
-
-**What you would change to fix it:** Replace placeholder documents with real student notes or summaries, then rerun ingestion and retrieval. After that, validate the top-k results against the source text and confirm the Groq key is configured before generation.
-
-## Spec Reflection
-
-**One way the spec helped you during implementation:** The project specification gave a clear RAG structure and explicit expectations for ingestion, retrieval, source attribution, and a local demo. That helped keep the implementation small, modular, and aligned with the required pipeline.
-
-**One way your implementation diverged from the spec, and why:** The original starter repository provided only templates, so I created the full project from scratch rather than inheriting a prebuilt app. I also kept the corpus intentionally placeholder-based until authentic student documents are supplied, because inventing fake sources would violate the academic requirement.
-
-## AI Usage
-
-**Instance 1**
-
-- *What I gave the AI:* The starter repository structure, the project requirements, and the need for a small local RAG pipeline.
-- *What it produced:* Initial Python scaffolding for ingestion, a ChromaDB embedding flow, and the general architecture for query and Gradio code.
-- *What I changed or overrode:* I reviewed the generated code, preserved the requested starter structure, adjusted chunking and metadata behavior, and kept the final implementation simple and readable rather than accepting a more abstract or overengineered design.
-
-**Instance 2**
-
-- *What I gave the AI:* The requirements for grounded generation, source attribution, and the command-line query interface.
-- *What it produced:* A prompt template and response structure that enforced using only retrieved context and listing sources.
-- *What I changed or overrode:* I added explicit runtime checks for missing Groq keys, made the retrieval output copy-friendly for README work, and ensured the answer path fails gracefully when the corpus is not yet populated.
+Milestone 6 evaluation is pending. The completed Milestone 4 retrieval evidence and Milestone 5 grounded-generation examples are recorded above; final accuracy judgments and failure analysis will be added during the evaluation milestone.
 
 ## Document Ingestion
 
-The implementation is fully local and intentionally simple: it scans the documents folder, reads .txt files, cleans them, and emits chunk dictionaries that include the source filename and chunk position. The project is ready for real student sources to be dropped into the same folder.
+The local ingestion pipeline scans 16 source documents: 15 `.txt` files and one PDF handbook. It cleans and chunks the content while keeping source filename, chunk index, file type, and topic metadata for retrieval and attribution.
 
 ## Running the Project
 
-From the repository root, run the following commands in the project virtual environment:
+From the repository root, use the existing virtual environment:
 
-python -m venv .venv
-.venv\Scripts\Activate.ps1  # PowerShell
-python -m pip install -r requirements.txt
-python ingest.py
-python vector_store.py --rebuild
-python query.py "What do students say about Thermodynamics?" --retrieve-only
-python app.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe ingest.py
+.\.venv\Scripts\python.exe vector_store.py --rebuild
+.\.venv\Scripts\python.exe query.py "Which course explicitly teaches programming and software such as MATLAB?" --retrieve-only
+.\.venv\Scripts\python.exe query.py "What three modes of heat transfer are covered in MEEG-403 Heat Transfer?"
+.\.venv\Scripts\python.exe app.py
+```
 
 ## Demo Video
 
@@ -318,4 +281,4 @@ python app.py
 
 ## AI Usage
 
-The project was implemented with the assistance of an AI coding assistant in the VS Code environment. The actual code was reviewed and adjusted manually to stay aligned with the project requirements and to avoid fabricating source material or evaluation results.
+This project uses AI-assisted implementation. The assistant helped build the ingestion, ChromaDB retrieval, strict grounding prompt, CLI, and Gradio wiring. Runtime examples in this README were captured from the current local corpus and configured Groq account; no API key is stored in the repository or this document.

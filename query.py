@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections import OrderedDict
+import sys
+from typing import Any
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -12,66 +13,96 @@ from vector_store import retrieve
 load_dotenv()
 
 DEFAULT_TOP_K = 4
-SYSTEM_INSTRUCTION = (
-    "You are answering questions using only the provided retrieved documents. Do not use outside knowledge. "
-    "If the provided context does not contain enough information to answer the question, say that you do not have enough information. "
-    "Do not invent facts. Cite the relevant source filenames in your response."
-)
+# The originally planned Llama model returned HTTP 404 for this Groq account;
+# this available instruction model is used for the validated runtime path.
+GROQ_MODEL = "openai/gpt-oss-20b"
+INSUFFICIENT_INFORMATION_RESPONSE = "I don't have enough information in the provided documents to answer that."
+SYSTEM_INSTRUCTION = f"""You are answering a question using only the retrieved document context provided below.
+
+Rules:
+1. Use only information explicitly supported by the provided context.
+2. Do not use outside knowledge, assumptions, or general background knowledge.
+3. If the context does not contain enough information to answer, respond with exactly:
+{INSUFFICIENT_INFORMATION_RESPONSE}
+4. Do not invent facts.
+5. Do not infer course requirements, professor behavior, dates, prerequisites, opinions, or policies unless they are supported by the provided context.
+6. Keep the answer concise and directly tied to the question.
+7. Do not add a source list to the answer; the application provides sources separately from retrieval metadata."""
 
 
-def build_prompt(question: str, retrieval_results: list[dict]) -> list[dict]:
-    if not retrieval_results:
-        return [
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": f"Question: {question}\n\nNo retrieved documents were found, so I must respond that there is not enough information."},
-        ]
+def get_api_key() -> str:
+    """Return the configured Groq key without exposing it in errors or output."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key or api_key == "your_key_here":
+        raise ValueError("GROQ_API_KEY is not configured. Add it to your .env file before running generation.")
+    return api_key
 
+
+def unique_sources(retrieval_results: list[dict[str, Any]]) -> list[str]:
+    """Derive a stable, deduplicated source list from retrieval metadata."""
+    return list(dict.fromkeys(str(result["source"]) for result in retrieval_results))
+
+
+def build_prompt(question: str, retrieval_results: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Build a strict grounding prompt that includes source identifiers for each chunk."""
     context_blocks = []
-    for index, result in enumerate(retrieval_results, start=1):
+    for result in retrieval_results:
         context_blocks.append(
-            f"[Document {index}] Source: {result['source']} | Chunk: {result['chunk_index']} | Distance: {result['distance']:.4f}\n{result['text']}"
+            "\n".join(
+                [
+                    f"SOURCE: {result['source']}",
+                    f"CHUNK INDEX: {result['chunk_index']}",
+                    f"FILE TYPE: {result['file_type']}",
+                    f"TOPIC: {result['topic']}",
+                    "CONTENT:",
+                    result["text"],
+                ]
+            )
         )
 
-    context_text = "\n\n".join(context_blocks)
-    user_message = (
-        f"Question: {question}\n\nUse only the following retrieved documents to answer. "
-        f"If they do not contain enough information, say that you do not have enough information.\n\n{context_text}"
-    )
+    context = "\n\n---\n\n".join(context_blocks) or "No retrieved document context is available."
     return [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
-        {"role": "user", "content": user_message},
+        {
+            "role": "user",
+            "content": f"Question: {question}\n\nRetrieved document context:\n{context}",
+        },
     ]
 
 
-def answer_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict:
-    retrieval_results = retrieve(question, top_k=top_k)
-    sources = []
-    seen = set()
-    for result in retrieval_results:
-        if result["source"] not in seen:
-            sources.append(result["source"])
-            seen.add(result["source"])
+def ask(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+    """Retrieve evidence, call Groq, and return a grounded answer with code-derived sources."""
+    if not question or not question.strip():
+        raise ValueError("Please enter a question first.")
 
+    retrieval_results = retrieve(question.strip(), top_k=top_k)
+    sources = unique_sources(retrieval_results)
     if not retrieval_results:
         return {
-            "answer": "I don't have enough information in the provided documents to answer that question.",
+            "answer": INSUFFICIENT_INFORMATION_RESPONSE,
             "sources": [],
             "retrieved_chunks": [],
         }
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key or api_key == "your_key_here":
-        raise ValueError("GROQ_API_KEY is missing or still set to the placeholder value. Add it to a local .env file and restart the app.")
+    client = Groq(api_key=get_api_key())
+    try:
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=build_prompt(question.strip(), retrieval_results),
+            temperature=0.0,
+            max_tokens=300,
+        )
+    except Exception as exc:
+        status_code = getattr(exc, "status_code", None)
+        error_label = exc.__class__.__name__
+        status_detail = f" (status {status_code})" if status_code else ""
+        raise RuntimeError(
+            f"The generation request failed ({error_label}{status_detail}). Please try again."
+        ) from exc
 
-    client = Groq(api_key=api_key)
-    prompt = build_prompt(question, retrieval_results)
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=prompt,
-        temperature=0.1,
-        max_tokens=500,
-    )
-    answer = completion.choices[0].message.content.strip()
+    answer = (completion.choices[0].message.content or "").strip()
+    if not answer:
+        raise RuntimeError("The generation service returned an empty response. Please try again.")
 
     return {
         "answer": answer,
@@ -80,23 +111,12 @@ def answer_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict:
     }
 
 
-def print_result(question: str, result: dict) -> None:
-    print("QUESTION")
-    print(question)
-    print("\nRETRIEVED CHUNKS")
-    for index, chunk in enumerate(result["retrieved_chunks"], start=1):
-        print(f"{index}. source={chunk['source']} | chunk_index={chunk['chunk_index']} | distance={chunk['distance']:.4f}")
-        print(chunk["text"])
-        print("-" * 60)
-
-    print("\nANSWER")
-    print(result["answer"])
-    print("\nSOURCES")
-    for source in result["sources"]:
-        print(f"- {source}")
+def answer_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+    """Backward-compatible name used by the Gradio interface."""
+    return ask(question, top_k=top_k)
 
 
-def print_retrieval_results(question: str, retrieval_results: list[dict]) -> None:
+def print_retrieval_results(question: str, retrieval_results: list[dict[str, Any]]) -> None:
     """Print full retrieval-only results in a README-friendly format."""
     print("QUESTION")
     print(question)
@@ -112,29 +132,42 @@ def print_retrieval_results(question: str, retrieval_results: list[dict]) -> Non
         print("-" * 50)
 
 
+def print_answer_result(question: str, result: dict[str, Any]) -> None:
+    """Print normal generation-mode output without relying on model-provided citations."""
+    print("QUESTION")
+    print(question)
+    print("\nANSWER")
+    print(result["answer"])
+    print("\nSOURCES")
+    for source in result["sources"]:
+        print(f"- {source}")
+    print("\nRETRIEVED CONTEXT")
+    for rank, chunk in enumerate(result["retrieved_chunks"], start=1):
+        print(
+            f"{rank}. source={chunk['source']} | chunk_index={chunk['chunk_index']} | "
+            f"distance={chunk['distance']:.4f}"
+        )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ask a question against the Howard Mechanical Engineering corpus.")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description="Ask a grounded question against the Howard Mechanical Engineering corpus.")
     parser.add_argument("question", nargs="?", help="Question to ask the ChromaDB retrieval pipeline.")
     parser.add_argument("--retrieve-only", action="store_true", help="Only retrieve the top chunks and do not call Groq.")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="How many chunks to retrieve.")
     args = parser.parse_args()
 
     if not args.question:
-        parser.error("A question is required unless using --retrieve-only with a query string.")
-
-    retrieval_results = retrieve(args.question, top_k=args.top_k)
-    if args.retrieve_only:
-        print_retrieval_results(args.question, retrieval_results)
-        return
+        parser.error("A question is required.")
 
     try:
-        response = answer_question(args.question, top_k=args.top_k)
-        print_result(args.question, response)
-    except ValueError as exc:
-        print(f"Runtime configuration error: {exc}")
-        print("\nRetrieved chunks for debugging:")
-        for idx, chunk in enumerate(retrieval_results, start=1):
-            print(f"{idx}. {chunk['source']} | chunk_index={chunk['chunk_index']} | distance={chunk['distance']:.4f}")
+        if args.retrieve_only:
+            print_retrieval_results(args.question, retrieve(args.question, top_k=args.top_k))
+            return
+        print_answer_result(args.question, ask(args.question, top_k=args.top_k))
+    except (ValueError, RuntimeError) as exc:
+        print(f"REQUEST FAILED: {exc}")
 
 
 if __name__ == "__main__":
